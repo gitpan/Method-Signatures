@@ -1,0 +1,7 @@
+Build.PL
+Changes
+lib/Method/Signatures.pm
+MANIFEST
+t/method.t
+META.yml
+SIGNATURE    Added here by Module::Build
