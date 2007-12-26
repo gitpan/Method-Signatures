@@ -15,15 +15,15 @@ not run its Makefile.PL or Build.PL.
 Hash: SHA1
 
 SHA1 eef233927c948d36531104bdc57a615d855f56f1 Build.PL
-SHA1 47cc3f9fd8cc538cc8187bdf14aeccdd2bcdc1b3 Changes
+SHA1 2b02eccaabbee76276c90953f982429154633e0b Changes
 SHA1 d3fd55fc333bac1cd0592f0ad583d459a47bc5f6 MANIFEST
-SHA1 8f2fd8bac630b38e752ead8d3e3d2987a0221a94 META.yml
-SHA1 2b55381456f62d0d931e99a0050bc44612c4ab49 lib/Method/Signatures.pm
+SHA1 fd2ca98ac53d1e232d1b68e67f730d2b9c1a5360 META.yml
+SHA1 49eaed79751e314ee82218ae220595a7addc36c2 lib/Method/Signatures.pm
 SHA1 4e245df5ca35026cd1a0c91a4200c0d69789439a t/method.t
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.7 (Darwin)
 
-iD8DBQFHcibmWMohlhD1QycRAlY6AJ9CWyxW7qk9hJz11nEmjbNTnN4tHQCgt9Md
-o/5eyVZBFTfscetJI+hLPbo=
-=he5g
+iD8DBQFHcif5WMohlhD1QycRAtbMAJ9RzeU8Z1FNUKvIh+rXDOwpYlPVUwCggMIv
+big8jxl5CUwcHrHbxJQYemk=
+=XxkW
 -----END PGP SIGNATURE-----
