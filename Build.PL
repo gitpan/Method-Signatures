@@ -1,12 +1,14 @@
 #!/usr/bin/perl -w
 
+use 5.006;
+
 use Module::Build;
 
 my $build = Module::Build->new(
     module_name     => 'Method::Signatures',
     license         => 'perl',
     requires        => {
-        'Devel::Declare'    => '0.001006',
+        'Devel::Declare'    => '0.002000',
         'Test::More'        => '0.62',
     },
     

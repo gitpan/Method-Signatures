@@ -1,7 +1,9 @@
 Build.PL
 Changes
 lib/Method/Signatures.pm
-MANIFEST
-t/method.t
+MANIFEST			This list of files
 META.yml
-SIGNATURE    Added here by Module::Build
+t/caller.t
+t/debugger.t
+t/method.t
+t/one_line.t
