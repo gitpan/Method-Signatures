@@ -1,6 +1,6 @@
 ---
 name: Method-Signatures
-version: 0.03
+version: 0.04
 author:
   - 'Michael G Schwern <schwern@pobox.com>'
 abstract: method declarations with prototypes and no source filter
@@ -15,8 +15,8 @@ requires:
 provides:
   Method::Signatures:
     file: lib/Method/Signatures.pm
-    version: 0.03
-generated_by: Module::Build version 0.2808
+    version: 0.04
+generated_by: Module::Build version 0.280805
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
   version: 1.2
