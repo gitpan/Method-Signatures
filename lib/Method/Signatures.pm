@@ -8,12 +8,12 @@ use Data::Alias ();
 use Scope::Guard;
 use Sub::Name;
 
-our $VERSION = '0.05';
+our $VERSION = '0.10';
 
 
 =head1 NAME
 
-Method::Signatures - method declarations with prototypes and no source filter
+Method::Signatures - method declarations with signatures and no source filter
 
 =head1 SYNOPSIS
 
@@ -39,15 +39,15 @@ This is B<ALPHA SOFTWARE> which relies on B<YET MORE ALPHA SOFTWARE>.
 Use at your own risk.  Features may change.
 
 Provides a proper method keyword, like "sub" but specificly for making
-methods.  Also a prototype declaration.  Finally it will automatically
-provide the invocant as $self.  No more C<my $self = shift>.
+methods.  Also allows signatures.  Finally it will automatically
+provide the invocant as C<$self>.  No more C<my $self = shift>.
 
 And it does all this with B<no source filters>.
 
 
-=head2 Prototype syntax
+=head2 Signature syntax
 
-At the moment the prototypes are very simple.
+At the moment the signatures are very simple.
 
     method foo($bar, $baz) {
         $self->wibble($bar, $baz);
@@ -64,15 +64,15 @@ is equivalent to:
 except the original line numbering is preserved.
 
 No checks are made that the arguments being passed in match the
-prototype.
+signature.
 
-Future releases will add extensively to the prototype syntax probably
+Future releases will add extensively to the signature syntax probably
 along the lines of Perl 6.
 
 
 =head3 Aliased references
 
-A prototype of C<\@foo> will take an array reference but allow it to
+A signature of C<\@foo> will take an array reference but allow it to
 be used as C<@foo> inside the method.
 
     package Stuff;
@@ -83,10 +83,61 @@ be used as C<@foo> inside the method.
 
     Stuff->foo([1,2,3], [4,5,6]);
 
+=head3 Invocant parameter
 
-=head3 The C<@_> prototype
+The method invocant (ie. C<$self>) can be changed as the first
+parameter.  Put a colon after it instead of a comma.
 
-The @_ prototype is a special case which only shifts C<$self>.  It
+    method foo($class:) {
+        $class->bar;
+    }
+
+    method stuff($class: $arg, $another) {
+        $class->things($arg, $another);
+    }
+
+=head3 Defaults
+
+Each parameter can be given a default with the C<$arg = EXPR> syntax.
+For example,
+
+    method add($this = 23, $that = 42) {
+        return $this + $that;
+    }
+
+Defaults will only be used if the argument is not passed in at all.
+Passing in C<undef> will override the default.  That means...
+
+    Class->add();            # $this = 23, $that = 42
+    Class->add(99);          # $this = 99, $that = 42
+    Class->add(99, undef);   # $this = 99, $that = undef
+
+All variables with defaults are considered optional.
+
+
+=head3 Parameter traits
+
+Each parameter can be assigned a trait with the C<$arg is TRAIT> syntax.
+
+    method stuff($this is ro) {
+        ...
+    }
+
+Any unknown trait is ignored.
+
+Currently there are no traits.  It's for forward compatibility.
+
+
+=head3 Optional parameters
+
+To declare a parameter optional, use the C<$arg?> syntax.
+
+Currently nothing is done with this.  It's for forward compatibility.
+
+
+=head3 The C<@_> signature
+
+The @_ signature is a special case which only shifts C<$self>.  It
 leaves the rest of C<@_> alone.  This way you can get $self but do the
 rest of the argument handling manually.
 
@@ -155,23 +206,78 @@ sub import {
 
     sub make_proto_unwrap {
         my ($proto) = @_;
-        my $inject = 'my $self = shift; ';
-        if (defined $proto and length $proto and $proto ne '@_') {
-            my @protos = split /\s*,\s*/, $proto;
-            for my $idx (0..$#protos) {
-                my $proto = $protos[$idx];
+        $proto ||= '';
 
-                $inject .= $proto =~ s{^\\}{}x ? do {
-                                                     $proto =~ s{^ (.) }{}x;
-                                                     my $sigil = $1;
-                                                     "Data::Alias::alias(my $sigil$proto = ${sigil}{\$_[$idx]}); "; }
-                         : $proto =~ m{^[@%]}  ? "my($proto) = \@_[$idx..\$#_]; "
-                         :                       "my($proto) = \$_[$idx]; ";
+        # Do all the signature parsing here
+        my %signature;
+        $signature{invocant} = '$self';
+        $signature{invocant} = $1 if $proto =~ s{^(.*):\s*}{};
+
+        my @protos = split /\s*,\s*/, $proto;
+        for my $idx (0..$#protos) {
+            my $sig = $signature{$idx} = {};
+            my $proto = $protos[$idx];
+
+#            print STDERR "proto: $proto\n";
+
+            $sig->{proto}               = $proto;
+            $sig->{idx}                 = $idx;
+            $sig->{is_at_underscore}    = $proto eq '@_';
+            $sig->{is_ref_alias}        = $proto =~ s{^\\}{}x;
+
+            $sig->{trait}   = $1 if $proto =~ s{ \s+ is \s+ (\S+) \s* }{}x;
+            $sig->{default} = $1 if $proto =~ s{ \s* = \s* (.*) }{}x;
+
+            my($sigil, $name) = $proto =~ m{^ (.)(.*) }x;
+            $sig->{is_optional} = ($name =~ s{\?$}{} or $sig->{default});
+            $sig->{sigil}       = $sigil;
+            $sig->{name}        = $name;
+        }
+
+        # XXX At this point we could do sanity checks
+
+        # Then turn it into Perl code
+        my $inject = inject_from_signature(\%signature);
+#        print STDERR "inject: $inject\n";
+
+        return $inject;
+    }
+
+    # Turn the parsed signature into Perl code
+    sub inject_from_signature {
+        my $signature = shift;
+
+        my @code;
+        push @code, "my $signature->{invocant} = shift;";
+        
+        for( my $idx = 0; my $sig = $signature->{$idx}; $idx++ ) {
+            next if $sig->{is_at_underscore};
+
+            my $sigil = $sig->{sigil};
+            my $name  = $sig->{name};
+
+            # These are the defaults.
+            my $lhs = "my ${sigil}${name}";
+            my $rhs = (!$sig->{is_ref_alias} and $sig->{sigil} =~ /^[@%]$/) ? "\@_[$idx..\$#_]" : "\$_[$idx]";
+
+            # Handle a default value
+            $rhs = "\@_ > $idx ? $rhs : $sig->{default}" if defined $sig->{default};
+
+            # XXX We don't do anything with traits right now
+
+            # XXX is_optional is ignored
+
+            # Handle \@foo
+            if( $sig->{is_ref_alias} ) {
+                push @code, sprintf 'Data::Alias::alias(%s = %s);', $lhs, $sigil."{$rhs}";
+            }
+            else {
+                push @code, "$lhs = $rhs;";
             }
         }
 
-#        print STDERR "inject: $inject\n";
-        return $inject;
+        # All on one line.
+        return join ' ', @code;
     }
 
     sub inject_if_block {
@@ -228,15 +334,37 @@ sub import {
 There is no performance penalty for using this module.
 
 
+=head1 EXPERIMENTING
+
+If you want to experiment with the prototype syntax, replace
+C<Method::Signatures::make_proto_unwrap>.  It takes a method prototype
+and returns a string of Perl 5 code which will be placed at the
+beginning of that method.
+
+This interface is experimental, unstable and will change between
+versions.
+
+
 =head1 BUGS, CAVEATS and NOTES
 
 Please report bugs and leave feedback at
 E<lt>bug-Method-SignaturesE<gt> at E<lt>rt.cpan.orgE<gt>.  Or use the
 web interface at L<http://rt.cpan.org>.  Report early, report often.
 
+=head2 C<method> is not declared at compile time.
+
+Unlike declaring a C<sub>, C<method> currently does not happen at
+compile time.  This usually isn't a problem.  We're looking to fix it.
+
 =head2 Debugging
 
 This totally breaks the debugger.  Will have to wait on Devel::Declare fixes.
+
+=head2 One liners
+
+If you want to write "use Method::Signatures" in a one-liner, do a
+C<-MMethod::Signatures> first.  This is due to a bug in
+Devel::Declare.
 
 =head2 No source filter
 
@@ -257,16 +385,16 @@ method and sub.
 
 =head2 What about class methods?
 
-Right now there's no way to declare method as being a class method, or
-change the invocant, so the invocant is always $self.  This is just a
-matter of coming up with the appropriate prototype syntax.  I may
-simply use the Perl 6 C<($invocant: $arg)> syntax though this doesn't
-provde type safety.
+Right now there's nothing special about class methods.  Just use
+C<$class> as your invocant like the normal Perl 5 convention.
+
+There may be special syntax to separate class from object methods in
+the future.
 
 =head2 What about types?
 
 I would like to add some sort of types in the future or simply make
-the prototype handler pluggable.
+the signature handler pluggable.
 
 =head2 What about the return value?
 
@@ -277,13 +405,26 @@ return value.
 
 ...what would an anonymous method do?
 
+=head2 How does this relate to Perl's built-in prototypes?
+
+It doesn't.  Perl prototypes are a rather different beastie from
+subroutine signatures.
+
+=head2 What about...
+
+Named parameters are in the pondering stage.
+
+Read-only parameters and aliasing will probably be supported with
+C<$arg is ro> and C<$arg is alias> respectively, mirroring Perl 6.
+
+Method traits are in the pondering stage.
 
 =head1 THANKS
 
 This is really just sugar on top of Matt Trout's L<Devel::Declare> work.
 
 Also thanks to Matthijs van Duin for his awesome L<Data::Alias> which
-makes the C<\@foo> prototype work perfectly and L<Sub::Name> which
+makes the C<\@foo> signature work perfectly and L<Sub::Name> which
 makes the subroutine names come out right in caller().
 
 

@@ -1,3 +1,16 @@
+0.10  Sun Sep 21 20:04:41 PDT 2008
+    New Features
+    * Added "$class:" change the invocant a la Perl 6.
+    * Added "$arg = EXPR" to set defaults.
+    * Added "$arg?" optional param syntax (currently does nothing)
+    * Added "$arg is foo" param traits (currently does nothing)
+    * Expose a way to play with the prototype handler.
+
+    Doc Fixes
+    - Change "prototype" to "signature" to avoid confusion with Perl's
+      built in prototypes.
+
+
 0.05  Sun Sep 21 15:17:16 PDT 2008
     Bug Fixes
     * methods now get the right name in caller(), not "Class::__ANON__".
