@@ -8,6 +8,8 @@ my $build = Module::Build->new(
     module_name     => 'Method::Signatures',
     license         => 'perl',
     requires        => {
+        'perl'              => '5.8.1',
+
         'Devel::Declare'    => '0.002000',
         'Test::More'        => '0.62',
         'Data::Alias'       => '1.07',
@@ -21,7 +23,7 @@ my $build = Module::Build->new(
             license     => 'http://dev.perl.org/licenses/',
             bugtracker  =>
                 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=Method-Signatures',
-            repository  => 'http://svn.schwern.org/svn/CPAN/Method-Signatures',
+            repository  => 'https://github.com/schwern/method-signatures/tree',
         },
     },
 );
