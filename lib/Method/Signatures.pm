@@ -5,10 +5,11 @@ use warnings;
 
 use Devel::Declare ();
 use Data::Alias ();
+use Readonly;
 use Scope::Guard;
 use Sub::Name;
 
-our $VERSION = '0.11';
+our $VERSION = 20081006;
 
 
 =head1 NAME
@@ -142,8 +143,34 @@ Each parameter can be assigned a trait with the C<$arg is TRAIT> syntax.
 
 Any unknown trait is ignored.
 
-Currently there are no traits.  It's for forward compatibility.
+Most parameters have a default traits of C<is rw is copy>.
 
+=over 4
+
+=item B<ro>
+
+Read-only.  Assigning or modifying the parameter is an error.
+
+=item B<rw>
+
+Read-write.  It's ok to read or write the parameter.
+
+This is a default trait.
+
+=item B<copy>
+
+The parameter will be a copy of the argument (just like C<<my $arg = shift>>).
+
+This is a default trait except for the C<\@foo> parameter.
+
+=item B<alias>
+
+The parameter will be an alias of the argument.  Any changes to the
+parameter will be reflected in the caller.
+
+This is a default trait for the C<\@foo> parameter.
+
+=back
 
 =head3 Traits and defaults
 
@@ -207,6 +234,101 @@ sub import {
 }
 
 
+sub make_proto_unwrap {
+    my ($proto) = @_;
+    $proto ||= '';
+
+    # Do all the signature parsing here
+    my %signature;
+    $signature{invocant} = '$self';
+    $signature{invocant} = $1 if $proto =~ s{^(.*):\s*}{};
+
+    my @protos = split /\s*,\s*/, $proto;
+    for my $idx (0..$#protos) {
+        my $sig = $signature{$idx} = {};
+        my $proto = $protos[$idx];
+
+        #            print STDERR "proto: $proto\n";
+
+        $sig->{proto}               = $proto;
+        $sig->{idx}                 = $idx;
+        $sig->{is_at_underscore}    = $proto eq '@_';
+        $sig->{is_ref_alias}        = $proto =~ s{^\\}{}x;
+
+        while ($proto =~ s{ \s+ is \s+ (\S+) }{}x) {
+            $sig->{traits}{$1}++;
+        }
+        $sig->{default} = $1 if $proto =~ s{ \s* = \s* (.*) }{}x;
+
+        my($sigil, $name) = $proto =~ m{^ (.)(.*) }x;
+        $sig->{is_optional} = ($name =~ s{\?$}{} or exists $sig->{default});
+        $sig->{is_optional} = 0 if $name =~ s{\!$}{};
+        $sig->{sigil}       = $sigil;
+        $sig->{name}        = $name;
+        $sig->{var}         = $sigil . $name;
+    }
+
+    # XXX At this point we could do sanity checks
+
+    # Then turn it into Perl code
+    my $inject = inject_from_signature(\%signature);
+    #        print STDERR "inject: $inject\n";
+
+    return $inject;
+}
+
+
+# Turn the parsed signature into Perl code
+sub inject_from_signature {
+    my $signature = shift;
+
+    my @code;
+    push @code, "my $signature->{invocant} = shift;";
+        
+    for ( my $idx = 0; my $sig = $signature->{$idx}; $idx++ ) {
+        next if $sig->{is_at_underscore};
+
+        my $sigil = $sig->{sigil};
+        my $name  = $sig->{name};
+
+        # These are the defaults.
+        my $lhs = "my $sig->{var}";
+        my $rhs = $sig->{is_ref_alias}       ? "${sigil}{\$_[$idx]}" :
+          $sig->{sigil} =~ /^[@%]$/  ? "\@_[$idx..\$#_]"     : 
+            "\$_[$idx]"           ;
+
+        # Handle a default value
+        $rhs = "(\@_ > $idx) ? ($rhs) : ($sig->{default})" if defined $sig->{default};
+
+        push @code, qq[Method::Signatures::required_arg('$sig->{var}') if \@_ <= $idx; ]
+          unless $sig->{is_optional};
+
+        # Handle \@foo
+        if ( $sig->{is_ref_alias} or $sig->{traits}{alias} ) {
+            push @code, sprintf 'Data::Alias::alias(%s = %s);', $lhs, $rhs;
+        }
+        # Handle "is ro"
+        elsif ( $sig->{traits}{ro} ) {
+            push @code, "Readonly::Readonly $lhs => $rhs;";
+        } else {
+            push @code, "$lhs = $rhs;";
+        }
+    }
+
+    # All on one line.
+    return join ' ', @code;
+}
+
+
+sub required_arg {
+    my $var = shift;
+
+    my($pack, $file, $line, $method) = caller(1);
+    die sprintf "%s() missing required argument %s at %s line %d.\n",
+        $method, $var, $file, $line;
+}
+
+
 # Stolen from Devel::Declare's t/method-no-semi.t
 {
     our ($Declarator, $Offset);
@@ -252,98 +374,55 @@ sub import {
         Devel::Declare::shadow_sub("${pack}::${Declarator}", $_[0]);
     }
 
-    sub make_proto_unwrap {
-        my ($proto) = @_;
-        $proto ||= '';
-
-        # Do all the signature parsing here
-        my %signature;
-        $signature{invocant} = '$self';
-        $signature{invocant} = $1 if $proto =~ s{^(.*):\s*}{};
-
-        my @protos = split /\s*,\s*/, $proto;
-        for my $idx (0..$#protos) {
-            my $sig = $signature{$idx} = {};
-            my $proto = $protos[$idx];
-
-#            print STDERR "proto: $proto\n";
-
-            $sig->{proto}               = $proto;
-            $sig->{idx}                 = $idx;
-            $sig->{is_at_underscore}    = $proto eq '@_';
-            $sig->{is_ref_alias}        = $proto =~ s{^\\}{}x;
-
-            $sig->{trait}   = $1 if $proto =~ s{ \s+ is \s+ (\S+) \s* }{}x;
-            $sig->{default} = $1 if $proto =~ s{ \s* = \s* (.*) }{}x;
-
-            my($sigil, $name) = $proto =~ m{^ (.)(.*) }x;
-            $sig->{is_optional} = ($name =~ s{\?$}{} or $sig->{default});
-            $sig->{is_required} = ($name =~ s{\!$}{} or !$sig->{is_optional});
-            $sig->{sigil}       = $sigil;
-            $sig->{name}        = $name;
-        }
-
-        # XXX At this point we could do sanity checks
-
-        # Then turn it into Perl code
-        my $inject = inject_from_signature(\%signature);
-#        print STDERR "inject: $inject\n";
-
-        return $inject;
-    }
-
-    # Turn the parsed signature into Perl code
-    sub inject_from_signature {
-        my $signature = shift;
-
-        my @code;
-        push @code, "my $signature->{invocant} = shift;";
-        
-        for( my $idx = 0; my $sig = $signature->{$idx}; $idx++ ) {
-            next if $sig->{is_at_underscore};
-
-            my $sigil = $sig->{sigil};
-            my $name  = $sig->{name};
-
-            # These are the defaults.
-            my $lhs = "my ${sigil}${name}";
-            my $rhs = (!$sig->{is_ref_alias} and $sig->{sigil} =~ /^[@%]$/) ? "\@_[$idx..\$#_]" : "\$_[$idx]";
-
-            # Handle a default value
-            $rhs = "(\@_ > $idx) ? ($rhs) : ($sig->{default})" if defined $sig->{default};
-
-            # XXX We don't do anything with traits right now
-
-            # XXX is_optional is ignored
-
-            # Handle \@foo
-            if( $sig->{is_ref_alias} ) {
-                push @code, sprintf 'Data::Alias::alias(%s = %s);', $lhs, $sigil."{$rhs}";
-            }
-            else {
-                push @code, "$lhs = $rhs;";
-            }
-        }
-
-        # All on one line.
-        return join ' ', @code;
-    }
-
+    # Improved attributed parsing from MooseX::Method::Signatures
     sub inject_if_block {
         my $inject = shift;
         skipspace;
         my $linestr = Devel::Declare::get_linestr;
 
-        if (substr($linestr, $Offset, 1) eq ':') {      # sub with attributes
-            substr($linestr, $Offset, 0) = "sub ";
-            my $block_pos = rindex($linestr, "{");
-            substr($linestr, $block_pos + 1, 0) = $inject;
-        }
-        elsif (substr($linestr, $Offset, 1) eq '{') {      # without attributes
-            substr($linestr, $Offset+1, 0) = $inject;
+        my $attrs   = '';
+
+        if (substr($linestr, $Offset, 1) eq ':') {
+            while (substr($linestr, $Offset, 1) ne '{') {
+                if (substr($linestr, $Offset, 1) eq ':') {
+                    substr($linestr, $Offset, 1) = '';
+                    Devel::Declare::set_linestr($linestr);
+
+                    $attrs .= ' :';
+                }
+
+                skipspace;
+                $linestr = Devel::Declare::get_linestr();
+
+                if (my $len = Devel::Declare::toke_scan_word($Offset, 0)) {
+                    my $name = substr($linestr, $Offset, $len);
+                    substr($linestr, $Offset, $len) = '';
+                    Devel::Declare::set_linestr($linestr);
+
+                    $attrs .= " ${name}";
+
+                    if (substr($linestr, $Offset, 1) eq '(') {
+                        my $length = Devel::Declare::toke_scan_str($Offset);
+                        my $arg    = Devel::Declare::get_lex_stuff();
+                        Devel::Declare::clear_lex_stuff();
+                        $linestr = Devel::Declare::get_linestr();
+                        substr($linestr, $Offset, $length) = '';
+                        Devel::Declare::set_linestr($linestr);
+
+                        $attrs .= "(${arg})";
+                    }
+                }
+            }
+
+            $linestr = Devel::Declare::get_linestr();
         }
 
-        Devel::Declare::set_linestr($linestr);
+        if (substr($linestr, $Offset, 1) eq '{') {
+            substr($linestr, $Offset + 1, 0) = $inject;
+            substr($linestr, $Offset, 0) = "sub ${attrs}";
+            Devel::Declare::set_linestr($linestr);
+        }
+
     }
 
     sub scope_injector_call {
@@ -387,7 +466,8 @@ sub import {
 
 =head1 PERFORMANCE
 
-There is no performance penalty for using this module.
+There is no run-time performance penalty for using this module above
+what it normally costs to do argument handling.
 
 
 =head1 EXPERIMENTING
@@ -417,6 +497,8 @@ may be a good thing.
 
 This totally breaks the debugger.  Will have to wait on Devel::Declare fixes.
 
+You can see the Perl code Method::Signatures translates to by using B::Deparse.
+
 =head2 One liners
 
 If you want to write "use Method::Signatures" in a one-liner, do a
@@ -432,7 +514,7 @@ and there should be no weird side effects.
 
 Devel::Declare only effects compilation.  After that, it's a normal
 subroutine.  As such, for all that hairy magic, this module is
-surprisnigly stable.
+surprisingly stable.
 
 =head2 What about regular subroutines?
 
@@ -463,12 +545,13 @@ return value.
 It doesn't.  Perl prototypes are a rather different beastie from
 subroutine signatures.
 
+=head2 Error checking
+
+There currently is very little checking done on the prototype syntax.
+
 =head2 What about...
 
 Named parameters are in the pondering stage.
-
-Read-only parameters and aliasing will probably be supported with
-C<$arg is ro> and C<$arg is alias> respectively, mirroring Perl 6.
 
 Method traits are in the pondering stage.
 
@@ -485,6 +568,10 @@ Also thanks to Matthijs van Duin for his awesome L<Data::Alias> which
 makes the C<\@foo> signature work perfectly and L<Sub::Name> which
 makes the subroutine names come out right in caller().
 
+And thanks to Florian Ragwitz for his parallel
+L<MooseX::Method::Signatures> module from which I borrow ideas and
+code.
+
 
 =head1 LICENSE
 
@@ -500,7 +587,7 @@ See F<http://www.perl.com/perl/misc/Artistic.html>
 
 =head1 SEE ALSO
 
-L<Sub::Signatures>, L<Perl6::Subs>
+L<MooseX::Method::Signatures>, L<Perl6::Signature>, L<Sub::Signatures>, L<Perl6::Subs>
 
 Perl 6 subroutine parameters and arguments -  L<http://perlcabal.org/syn/S06.html#Parameters_and_arguments>
 

@@ -2,13 +2,21 @@ Build.PL
 Changes
 lib/Method/Signatures.pm
 MANIFEST			This list of files
+MANIFEST.SKIP
 META.yml
+t/alias.t
+t/anon.t
+t/attributes.t
 t/begin.t
 t/caller.t
 t/debugger.t
+t/defaults.t
 t/invocant.t
 t/lib/Dev/Null.pm
 t/method.t
 t/one_line.t
+t/optional.t
 t/refs.t
+t/required.t
+t/traits.t
 SIGNATURE    Added here by Module::Build
