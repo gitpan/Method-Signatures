@@ -9,7 +9,16 @@ use Readonly;
 use Scope::Guard;
 use Sub::Name;
 
-our $VERSION = 20081006;
+our $VERSION = 20081007;
+
+our $DEBUG = $ENV{METHOD_SIGNATURES_DEBUG} || 0;
+
+sub DEBUG {
+    return unless $DEBUG;
+
+    require Data::Dumper;
+    print STDERR "DEBUG: ", map { ref $_ ? Data::Dumper::Dumper($_) : $_ } @_;
+}
 
 
 =head1 NAME
@@ -48,8 +57,6 @@ And it does all this with B<no source filters>.
 
 =head2 Signature syntax
 
-At the moment the signatures are very simple.
-
     method foo($bar, $baz) {
         $self->wibble($bar, $baz);
     }
@@ -70,10 +77,24 @@ signature.
 Future releases will add extensively to the signature syntax probably
 along the lines of Perl 6.
 
+
 =head3 C<@_>
 
 Other than removing C<$self>, C<@_> is left intact.  You are free to
 use C<@_> alongside the arguments provided by Method::Signatures.
+
+
+=head3 Named parameters
+
+Parameters can be passed in named, as a hash, using the C<:$arg> syntax.
+
+    method foo(:$arg) {
+        ...
+    }
+
+    Class->foo( arg => 42 );
+
+Named parameters are optional and can have defaults.
 
 
 =head3 Aliased references
@@ -222,6 +243,9 @@ sub import {
     my $class = shift;
     my $caller = caller;
 
+    my $arg = shift;
+    $DEBUG = 1 if defined $arg and $arg eq ':DEBUG';
+
     Devel::Declare->setup_for(
         $caller,
         { method => { const => \&parser } }
@@ -234,26 +258,49 @@ sub import {
 }
 
 
+sub _strip_ws {
+    $_[0] =~ s/^\s+//;
+    $_[0] =~ s/\s+$//;
+}
+
+
 sub make_proto_unwrap {
     my ($proto) = @_;
     $proto ||= '';
 
-    # Do all the signature parsing here
-    my %signature;
-    $signature{invocant} = '$self';
-    $signature{invocant} = $1 if $proto =~ s{^(.*):\s*}{};
+    _strip_ws($proto);
 
     my @protos = split /\s*,\s*/, $proto;
-    for my $idx (0..$#protos) {
-        my $sig = $signature{$idx} = {};
-        my $proto = $protos[$idx];
 
-        #            print STDERR "proto: $proto\n";
+    my %signature;
+    $signature{invocant} = '$self';
+    if( @protos ) {
+        $signature{invocant} = $1 if $protos[0] =~ s{^(\S+?):\s*}{};
+        shift @protos unless $protos[0] =~ /\S/;
+    }
+
+    $signature{named}      = [];
+    $signature{positional} = [];
+
+    my $idx = 0;
+    for my $proto (@protos) {
+        DEBUG( "proto: $proto\n" );
+
+        my $sig   = {};
+        $sig->{named} = $proto =~ s{^:}{};
+
+        if( $sig->{named} ) {
+            push @{$signature{named}}, $sig;
+        }
+        else {
+            push @{$signature{positional}}, $sig;
+            $sig->{idx} = $idx;
+            $idx++;
+        }
 
         $sig->{proto}               = $proto;
-        $sig->{idx}                 = $idx;
         $sig->{is_at_underscore}    = $proto eq '@_';
-        $sig->{is_ref_alias}        = $proto =~ s{^\\}{}x;
+        $sig->{is_ref_alias}        = $proto =~ s{^\\}{};
 
         while ($proto =~ s{ \s+ is \s+ (\S+) }{}x) {
             $sig->{traits}{$1}++;
@@ -261,18 +308,20 @@ sub make_proto_unwrap {
         $sig->{default} = $1 if $proto =~ s{ \s* = \s* (.*) }{}x;
 
         my($sigil, $name) = $proto =~ m{^ (.)(.*) }x;
-        $sig->{is_optional} = ($name =~ s{\?$}{} or exists $sig->{default});
+        $sig->{is_optional} = ($name =~ s{\?$}{} or exists $sig->{default} or $sig->{named});
         $sig->{is_optional} = 0 if $name =~ s{\!$}{};
         $sig->{sigil}       = $sigil;
         $sig->{name}        = $name;
         $sig->{var}         = $sigil . $name;
+
+        DEBUG( "sig: ", $sig );
     }
 
     # XXX At this point we could do sanity checks
 
     # Then turn it into Perl code
     my $inject = inject_from_signature(\%signature);
-    #        print STDERR "inject: $inject\n";
+    DEBUG( "inject: $inject\n" );
 
     return $inject;
 }
@@ -284,41 +333,72 @@ sub inject_from_signature {
 
     my @code;
     push @code, "my $signature->{invocant} = shift;";
-        
-    for ( my $idx = 0; my $sig = $signature->{$idx}; $idx++ ) {
-        next if $sig->{is_at_underscore};
 
-        my $sigil = $sig->{sigil};
-        my $name  = $sig->{name};
+    for my $sig (@{$signature->{positional}}) {
+        push @code, inject_for_sig($sig);
+    }
 
-        # These are the defaults.
-        my $lhs = "my $sig->{var}";
-        my $rhs = $sig->{is_ref_alias}       ? "${sigil}{\$_[$idx]}" :
-          $sig->{sigil} =~ /^[@%]$/  ? "\@_[$idx..\$#_]"     : 
-            "\$_[$idx]"           ;
+    return join ' ', @code unless @{$signature->{named}};
 
-        # Handle a default value
-        $rhs = "(\@_ > $idx) ? ($rhs) : ($sig->{default})" if defined $sig->{default};
+    my $first_named_idx = @{$signature->{positional}};
+    push @code, "my \%args = \@_[$first_named_idx..\$#_];";
 
-        push @code, qq[Method::Signatures::required_arg('$sig->{var}') if \@_ <= $idx; ]
-          unless $sig->{is_optional};
-
-        # Handle \@foo
-        if ( $sig->{is_ref_alias} or $sig->{traits}{alias} ) {
-            push @code, sprintf 'Data::Alias::alias(%s = %s);', $lhs, $rhs;
-        }
-        # Handle "is ro"
-        elsif ( $sig->{traits}{ro} ) {
-            push @code, "Readonly::Readonly $lhs => $rhs;";
-        } else {
-            push @code, "$lhs = $rhs;";
-        }
+    for my $sig (@{$signature->{named}}) {
+        push @code, inject_for_sig($sig);
     }
 
     # All on one line.
     return join ' ', @code;
 }
 
+
+sub inject_for_sig {
+    my $sig = shift;
+
+    return if $sig->{is_at_underscore};
+
+    my @code;
+
+    my $sigil = $sig->{sigil};
+    my $name  = $sig->{name};
+    my $idx   = $sig->{idx};
+
+    # These are the defaults.
+    my $lhs = "my $sig->{var}";
+    my $rhs;
+
+    if( $sig->{named} ) {
+        $rhs = "\$args{$sig->{name}}";
+    }
+    else {
+        $rhs = $sig->{is_ref_alias}       ? "${sigil}{\$_[$idx]}" :
+               $sig->{sigil} =~ /^[@%]$/  ? "\@_[$idx..\$#_]"     : 
+                                            "\$_[$idx]"           ;
+    }
+
+    my $check_exists = $sig->{named} ? "exists \$args{$sig->{name}}" : "(\@_ > $idx)";
+    # Handle a default value
+    if( defined $sig->{default} ) {
+        $rhs = "$check_exists ? ($rhs) : ($sig->{default})";
+    }
+
+    if( !$sig->{is_optional} ) {
+        push @code, qq[Method::Signatures::required_arg('$sig->{var}') unless $check_exists; ];
+    }
+
+    # Handle \@foo
+    if ( $sig->{is_ref_alias} or $sig->{traits}{alias} ) {
+        push @code, sprintf 'Data::Alias::alias(%s = %s);', $lhs, $rhs;
+    }
+    # Handle "is ro"
+    elsif ( $sig->{traits}{ro} ) {
+        push @code, "Readonly::Readonly $lhs => $rhs;";
+    } else {
+        push @code, "$lhs = $rhs;";
+    }
+
+    return @code;
+}
 
 sub required_arg {
     my $var = shift;
@@ -357,6 +437,7 @@ sub required_arg {
         skipspace;
     
         my $linestr = Devel::Declare::get_linestr();
+        DEBUG( "strip_proto/\$linestr: $linestr\n" );
         if (substr($linestr, $Offset, 1) eq '(') {
             my $length = Devel::Declare::toke_scan_str($Offset);
             my $proto = Devel::Declare::get_lex_stuff();
@@ -364,6 +445,9 @@ sub required_arg {
             $linestr = Devel::Declare::get_linestr();
             substr($linestr, $Offset, $length) = '';
             Devel::Declare::set_linestr($linestr);
+
+            DEBUG( "strip_proto/\$proto: $proto\n" );
+
             return $proto;
         }
         return;
@@ -382,6 +466,7 @@ sub required_arg {
 
         my $attrs   = '';
 
+        DEBUG("inject_if_block/\$linestr: $linestr\n");
         if (substr($linestr, $Offset, 1) eq ':') {
             while (substr($linestr, $Offset, 1) ne '{') {
                 if (substr($linestr, $Offset, 1) eq ':') {
@@ -470,6 +555,48 @@ There is no run-time performance penalty for using this module above
 what it normally costs to do argument handling.
 
 
+=head1 DEBUGGING
+
+One of the best ways to figure out what Method::Signatures is doing is
+to run your code through B::Deparse (run the code with -MO=Deparse).
+
+
+=head1 EXAMPLE
+
+Here's an example of a method which displays some text and takes some
+extra options.
+
+  use Method::Signatures;
+
+  method display($text is ro, :$justify = "left", :$fh = \*STDOUT) {
+      ...
+  }
+
+  # $text = $stuff, $justify = "left" and $fh = \*STDOUT
+  $obj->display($stuff);
+
+  # $text = $stuff, $justify = "left" and $fh = \*STDERR
+  $obj->display($stuff, fh => \*STDERR);
+
+  # error, missing required $text argument
+  $obj->display();
+
+The display() method is equivalent to all this code.
+
+  sub display {
+      my $self = shift;
+
+      croak('display() missing required argument $text') unless @_ > 0;
+      Readonly my $text = $_[0];
+
+      my(%args) = @_[1 .. $#_];
+      my $justify = exists $args{justify} ? $args{justify} : 'left';
+      my $fh      = exists $args{fh}      ? $args{'fh'}    : \*STDOUT;
+
+      ...
+  }
+
+
 =head1 EXPERIMENTING
 
 If you want to experiment with the prototype syntax, replace
@@ -522,6 +649,8 @@ L<Devel::Declare> cannot yet change the way C<sub> behaves.  It's
 being worked on and when it works I'll release another module unifying
 method and sub.
 
+I might release something using C<func>.
+
 =head2 What about class methods?
 
 Right now there's nothing special about class methods.  Just use
@@ -543,11 +672,36 @@ return value.
 =head2 How does this relate to Perl's built-in prototypes?
 
 It doesn't.  Perl prototypes are a rather different beastie from
-subroutine signatures.
+subroutine signatures.  They don't work on methods anyway.
+
+A syntax for function prototypes is being considered.
+
+    func($foo, $bar?) is proto($;$)
+
 
 =head2 Error checking
 
 There currently is very little checking done on the prototype syntax.
+Here's some basic checks I would like to add, mostly to avoid
+ambiguous or non-sense situations.
+
+* If one positional param is optional, everything to the right must be optional
+
+    method foo($a, $b?, $c?)  # legal
+
+    method bar($a, $b?, $c)   # illegal, ambiguous
+
+Does C<<->bar(1,2)>> mean $a = 1 and $b = 2 or $a = 1, $c = 3?
+
+* If you're have named parameters, all your positional params must be required.
+
+    method foo($a, $b, :$c);    # legal
+    method bar($a?, $b?, :$c);   # illegal, ambiguous
+
+Does C<<->bar(c => 42)>> mean $a = 'c', $b = 42 or just $c = 42?
+
+* Positionals are resolved before named params.  They have precedence.
+
 
 =head2 What about...
 
@@ -559,10 +713,32 @@ An API to query a method's signature is in the pondering stage.
 
 Now that we have method signatures, multi-methods are a distinct possibility.
 
+Applying traits to all parameters as a short-hand?
+
+    # Equivalent?
+    method foo($a is ro, $b is ro, $c is ro)
+    method foo($a, $b, $c) is ro
+
+A "go really fast" switch.  Turn off all runtime checks that might
+bite into performance.
+
+Method traits.
+
+    method add($left, $right) is predictable   # declarative
+    method add($left, $right) is cached        # procedural
+                                               # (and Perl 6 compatible)
+
 
 =head1 THANKS
 
-This is really just sugar on top of Matt Trout's L<Devel::Declare> work.
+Most of this module is based on or copied from hard work done by many
+other people.
+
+All the really scary parts are copied from or rely on Matt Trout's
+L<Devel::Declare> work.
+
+The prototype syntax is a slight adaptation of all the
+excellent work the Perl 6 folks have already done.
 
 Also thanks to Matthijs van Duin for his awesome L<Data::Alias> which
 makes the C<\@foo> signature work perfectly and L<Sub::Name> which
