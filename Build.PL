@@ -8,6 +8,8 @@ my $build = Module::Build->new(
     module_name     => 'Method::Signatures',
     license         => 'perl',
 
+    recursive_test_files => 1,
+
     configure_requires => {
         'Module::Build'     => '0.26',
     },
@@ -15,6 +17,7 @@ my $build = Module::Build->new(
     build_requires      => {
         'Module::Build'     => '0.26',
         'Test::More'        => '0.62',
+        'Test::Warn'        => '0.10',
     },
 
     requires        => {
@@ -24,6 +27,7 @@ my $build = Module::Build->new(
         'Data::Alias'       => '1.07',
         'Sub::Name'         => '0.04',
         'Readonly'          => '1.03',
+        PPI                 => '1.203',
     },
 
     recommends          => {

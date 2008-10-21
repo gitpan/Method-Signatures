@@ -1,3 +1,18 @@
+20081021  Tue Oct 21 01:43:24 PDT 2008
+    New Features
+    * Checks for unspecified arguments
+    * Almost anything can be used as a default.
+
+    Bug Fixes
+    * A default value with a comma in it is properly parsed.
+    * Default values can now be any literal, even wacky things like q,Hi!,
+    * The closing paren of a signature can now be on its own line.
+    * The closing paren and the opening block can be on the same line.
+
+    New Docs
+    * Documented differences from Perl 6
+
+
 20081008  Wed Oct  8 09:48:33 EDT 2008
     New Features
     * Named parameters have some basic compile-time error checks for illegal signatures.

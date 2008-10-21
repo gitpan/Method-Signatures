@@ -3,13 +3,15 @@ package Method::Signatures;
 use strict;
 use warnings;
 
+use Method::Signatures::Parser;
+
 use Devel::Declare ();
 use Data::Alias ();
 use Readonly;
 use Scope::Guard;
 use Sub::Name;
 
-our $VERSION = 20081008;
+our $VERSION = 20081021;
 
 our $DEBUG = $ENV{METHOD_SIGNATURES_DEBUG} || 0;
 
@@ -49,8 +51,10 @@ This is B<ALPHA SOFTWARE> which relies on B<YET MORE ALPHA SOFTWARE>.
 Use at your own risk.  Features may change.
 
 Provides a proper method keyword, like "sub" but specificly for making
-methods.  Also allows signatures.  Finally it will automatically
-provide the invocant as C<$self>.  No more C<my $self = shift>.
+methods.  It will automatically provide the invocant as C<$self>.  No
+more C<my $self = shift>.
+
+Also allows signatures, very similar to Perl 6 signatures.
 
 And it does all this with B<no source filters>.
 
@@ -160,6 +164,19 @@ For example,
         return $this + $that;
     }
 
+Almost any expression can be used as a default.
+
+    method silly(
+        $num    = 42,
+        $string = q[Hello, world!],
+        $hash   = { this => 42, that => 23 },
+        $code   = sub { $num + 4 },
+        @nums   = (1,2,3),
+    )
+    {
+        ...
+    }
+
 Defaults will only be used if the argument is not passed in at all.
 Passing in C<undef> will override the default.  That means...
 
@@ -259,6 +276,44 @@ An anonymous method can be declared just like an anonymous sub.
     $obj->$method(42);
 
 
+=head2 Differences from Perl 6
+
+Method::Signatures is mostly a straight subset of Perl 6 signatures.
+The important differences...
+
+=head3 Restrictions on named parameters
+
+As noted above, there are more restrictions on named parameters than
+in Perl 6.
+
+=head3 Named parameters are just hashes
+
+Perl 5 lacks all the fancy named parameter syntax for the caller.
+
+=head3 Parameters are copies.
+
+In Perl 6, parameters are aliases.  This makes sense in Perl 6 because
+Perl 6 is an "everything is an object" language.  In Perl 5 is not, so
+parameters are much more naturally passed as copies.
+
+You can alias using the "alias" trait.
+
+=head3 Can't use positional params as named params
+
+Perl 6 allows you to use any parameter as a named paramter.  Perl 5
+lacks the named parameter disambiguating syntax so it is not allowed.
+
+=head3 Addition of the C<\@foo> reference alias prototype
+
+Because in Perl 6 arrays and hashes don't get flattened, and their
+referencing syntax is much improved.  Perl 5 has no such luxury, so
+Method::Signatures added a way to alias references to normal variables
+to make them easier to work with.
+
+=head3 Addition of the C<@_> prototype
+
+Method::Signatures lets you punt and use @_ like in regular Perl 5.
+
 =cut
 
 sub import {
@@ -272,6 +327,8 @@ sub import {
         $caller,
         { method => { const => \&parser } }
     );
+
+    DEBUG("import for $caller done\n");
 
     # I don't really understand why we need to declare method
     # in the caller's namespace.
@@ -292,7 +349,7 @@ sub make_proto_unwrap {
 
     _strip_ws($proto);
 
-    my @protos = split /\s*,\s*/, $proto;
+    my @protos = split_proto($proto);
 
     my %signature;
     $signature{invocant} = '$self';
@@ -402,8 +459,20 @@ sub inject_from_signature {
         push @code, inject_for_sig($sig);
     }
 
+    push @code, 'Method::Signatures::named_param_check(\%args);' if $signature->{has_named};
+
     # All on one line.
     return join ' ', @code;
+}
+
+
+sub named_param_check {
+    my $args = shift;
+    my @keys = keys %$args;
+
+    return 1 unless @keys;
+
+    signature_error("does not take @keys as named argument(s)");
 }
 
 
@@ -423,7 +492,7 @@ sub inject_for_sig {
     my $rhs;
 
     if( $sig->{named} ) {
-        $rhs = "\$args{$sig->{name}}";
+        $rhs = "delete \$args{$sig->{name}}";
     }
     else {
         $rhs = $sig->{is_ref_alias}       ? "${sigil}{\$_[$idx]}" :
@@ -503,8 +572,19 @@ sub required_arg {
             my $length = Devel::Declare::toke_scan_str($Offset);
             my $proto = Devel::Declare::get_lex_stuff();
             Devel::Declare::clear_lex_stuff();
-            $linestr = Devel::Declare::get_linestr();
+            if( $length < 0 ) {
+                # Need to scan ahead more
+                $linestr .= Devel::Declare::get_linestr();
+                $length = length($linestr) - rindex($linestr, ")") + 1;
+            }
+            else {
+                $linestr = Devel::Declare::get_linestr();
+            }
+
+            DEBUG("strip_proto/Offset: $Offset, length: $length, linestr, '$linestr'\n");
             substr($linestr, $Offset, $length) = '';
+            DEBUG("strip_proto/after substr: linestr, '$linestr'\n");
+
             Devel::Declare::set_linestr($linestr);
 
             DEBUG( "strip_proto/\$proto: $proto\n" );
@@ -569,6 +649,7 @@ sub required_arg {
             Devel::Declare::set_linestr($linestr);
         }
 
+        DEBUG("inject_if_block done\n");
     }
 
     sub scope_injector_call {
@@ -596,6 +677,8 @@ sub required_arg {
         } else {
             shadow(sub (&) { shift });
         }
+
+        DEBUG("parser done\n");
     }
 
     sub inject_scope {
@@ -765,8 +848,6 @@ Does C<<->bar(c => 42)>> mean $a = 'c', $b = 42 or just $c = 42?
 
 
 =head2 What about...
-
-Named parameters are in the pondering stage.
 
 Method traits are in the pondering stage.
 
