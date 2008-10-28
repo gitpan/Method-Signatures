@@ -3,15 +3,14 @@ package Method::Signatures;
 use strict;
 use warnings;
 
+use base 'Devel::Declare::MethodInstaller::Simple';
 use Method::Signatures::Parser;
 
-use Devel::Declare ();
+use Devel::BeginLift;
 use Data::Alias ();
 use Readonly;
-use Scope::Guard;
-use Sub::Name;
 
-our $VERSION = '20081021.1911';
+our $VERSION = '20081028';
 
 our $DEBUG = $ENV{METHOD_SIGNATURES_DEBUG} || 0;
 
@@ -30,17 +29,17 @@ Method::Signatures - method declarations with signatures and no source filter
 =head1 SYNOPSIS
 
     package Foo;
-    
+
     use Method::Signatures;
-    
+
     method new (%args) {
         return bless {%args}, $self;
     }
-    
+
     method get ($key) {
         return $self->{$key};
     }
-    
+
     method set ($key, $val) {
         return $self->{$key} = $val;
     }
@@ -323,17 +322,25 @@ sub import {
     my $arg = shift;
     $DEBUG = 1 if defined $arg and $arg eq ':DEBUG';
 
-    Devel::Declare->setup_for(
-        $caller,
-        { method => { const => \&parser } }
+    $class->install_methodhandler(
+        into            => $caller,
+        name            => 'method',
     );
 
     DEBUG("import for $caller done\n");
+}
 
-    # I don't really understand why we need to declare method
-    # in the caller's namespace.
-    no strict 'refs';
-    *{$caller.'::method'} = sub (&) {};
+
+sub code_for {
+    my($self, $name) = @_;
+
+    my $code = $self->SUPER::code_for($name);
+
+    if( defined $name ) {
+        Devel::BeginLift->setup_for_cv($code);
+    }
+
+    return $code;
 }
 
 
@@ -343,7 +350,9 @@ sub _strip_ws {
 }
 
 
-sub make_proto_unwrap {
+# Overriden method from D::D::MS
+sub parse_proto {
+    my $self = shift;
     my ($proto) = @_;
     $proto ||= '';
 
@@ -366,6 +375,7 @@ sub make_proto_unwrap {
         has_named               => 0,
         has_positional          => 0,
         has_invocant            => $signature{invocant} ? 1 : 0,
+        num_slurpy              => 0
     };
 
     my $idx = 0;
@@ -395,6 +405,7 @@ sub make_proto_unwrap {
         $sig->{sigil}       = $sigil;
         $sig->{name}        = $name;
         $sig->{var}         = $sigil . $name;
+        $sig->{is_slurpy}   = ($sigil =~ /^[%@]$/ and !$sig->{is_ref_alias});
 
         check_signature($sig, \%signature);
 
@@ -405,10 +416,12 @@ sub make_proto_unwrap {
             push @{$signature{positional}}, $sig;
         }
 
-        $signature{has_optional}++              if $sig->{is_optional};
-        $signature{has_named}++                 if $sig->{named};
-        $signature{has_positional}++            if !$sig->{named};
-        $signature{has_optional_positional}++   if $sig->{is_optional} and !$sig->{named};
+        my $overall = $signature{overall};
+        $overall->{has_optional}++              if $sig->{is_optional};
+        $overall->{has_named}++                 if $sig->{named};
+        $overall->{has_positional}++            if !$sig->{named};
+        $overall->{has_optional_positional}++   if $sig->{is_optional} and !$sig->{named};
+        $overall->{num_slurpy}++                if $sig->{is_slurpy};
 
         DEBUG( "sig: ", $sig );
     }
@@ -424,14 +437,17 @@ sub make_proto_unwrap {
 sub check_signature {
     my($sig, $signature) = @_;
 
+    die("signature can only have one slurpy parameter") if
+      $sig->{is_slurpy} and $signature->{overall}{num_slurpy} >= 1;
+
     if( $sig->{named} ) {
-        if( $signature->{has_optional_positional} ) {
+        if( $signature->{overall}{has_optional_positional} ) {
             my $pos_var = $signature->{positional}[-1]{var};
             die("named parameter $sig->{var} mixed with optional positional $pos_var\n");
         }
     }
     else {
-        if( $signature->{has_named} ) {
+        if( $signature->{overall}{has_named} ) {
             my $named_var = $signature->{named}[-1]{var};
             die("positional parameter $sig->{var} after named param $named_var\n");
         }
@@ -459,7 +475,7 @@ sub inject_from_signature {
         push @code, inject_for_sig($sig);
     }
 
-    push @code, 'Method::Signatures::named_param_check(\%args);' if $signature->{has_named};
+    push @code, 'Method::Signatures::named_param_check(\%args);' if $signature->{overall}{has_named};
 
     # All on one line.
     return join ' ', @code;
@@ -539,160 +555,6 @@ sub required_arg {
 }
 
 
-# Stolen from Devel::Declare's t/method-no-semi.t
-{
-    our ($Declarator, $Offset);
-
-    sub skip_declarator {
-        $Offset += Devel::Declare::toke_move_past_token($Offset);
-    }
-
-    sub skipspace {
-        $Offset += Devel::Declare::toke_skipspace($Offset);
-    }
-
-    sub strip_name {
-        skipspace;
-        if (my $len = Devel::Declare::toke_scan_word($Offset, 1)) {
-            my $linestr = Devel::Declare::get_linestr();
-            my $name = substr($linestr, $Offset, $len);
-            substr($linestr, $Offset, $len) = '';
-            Devel::Declare::set_linestr($linestr);
-            return $name;
-        }
-        return;
-    }
-
-    sub strip_proto {
-        skipspace;
-    
-        my $linestr = Devel::Declare::get_linestr();
-        DEBUG( "strip_proto/\$linestr: $linestr\n" );
-        if (substr($linestr, $Offset, 1) eq '(') {
-            my $length = Devel::Declare::toke_scan_str($Offset);
-            my $proto = Devel::Declare::get_lex_stuff();
-            Devel::Declare::clear_lex_stuff();
-            if( $length < 0 ) {
-                # Need to scan ahead more
-                $linestr .= Devel::Declare::get_linestr();
-                $length = length($linestr) - rindex($linestr, ")") + 1;
-            }
-            else {
-                $linestr = Devel::Declare::get_linestr();
-            }
-
-            DEBUG("strip_proto/Offset: $Offset, length: $length, linestr, '$linestr'\n");
-            substr($linestr, $Offset, $length) = '';
-            DEBUG("strip_proto/after substr: linestr, '$linestr'\n");
-
-            Devel::Declare::set_linestr($linestr);
-
-            DEBUG( "strip_proto/\$proto: $proto\n" );
-
-            return $proto;
-        }
-        return;
-    }
-
-    sub shadow {
-        my $pack = Devel::Declare::get_curstash_name;
-        Devel::Declare::shadow_sub("${pack}::${Declarator}", $_[0]);
-    }
-
-    # Improved attributed parsing from MooseX::Method::Signatures
-    sub inject_if_block {
-        my $inject = shift;
-        skipspace;
-        my $linestr = Devel::Declare::get_linestr;
-
-        my $attrs   = '';
-
-        DEBUG("inject_if_block/\$linestr: $linestr\n");
-        if (substr($linestr, $Offset, 1) eq ':') {
-            while (substr($linestr, $Offset, 1) ne '{') {
-                if (substr($linestr, $Offset, 1) eq ':') {
-                    substr($linestr, $Offset, 1) = '';
-                    Devel::Declare::set_linestr($linestr);
-
-                    $attrs .= ' :';
-                }
-
-                skipspace;
-                $linestr = Devel::Declare::get_linestr();
-
-                if (my $len = Devel::Declare::toke_scan_word($Offset, 0)) {
-                    my $name = substr($linestr, $Offset, $len);
-                    substr($linestr, $Offset, $len) = '';
-                    Devel::Declare::set_linestr($linestr);
-
-                    $attrs .= " ${name}";
-
-                    if (substr($linestr, $Offset, 1) eq '(') {
-                        my $length = Devel::Declare::toke_scan_str($Offset);
-                        my $arg    = Devel::Declare::get_lex_stuff();
-                        Devel::Declare::clear_lex_stuff();
-                        $linestr = Devel::Declare::get_linestr();
-                        substr($linestr, $Offset, $length) = '';
-                        Devel::Declare::set_linestr($linestr);
-
-                        $attrs .= "(${arg})";
-                    }
-                }
-            }
-
-            $linestr = Devel::Declare::get_linestr();
-        }
-
-        if (substr($linestr, $Offset, 1) eq '{') {
-            substr($linestr, $Offset + 1, 0) = $inject;
-            substr($linestr, $Offset, 0) = "sub ${attrs}";
-            Devel::Declare::set_linestr($linestr);
-        }
-
-        DEBUG("inject_if_block done\n");
-    }
-
-    sub scope_injector_call {
-        return ' BEGIN { Method::Signatures::inject_scope }; ';
-    }
-
-    sub parser {
-        local ($Declarator, $Offset) = @_;
-        skip_declarator;
-        my $name = strip_name;
-        my $proto = strip_proto;
-        my $inject = make_proto_unwrap($proto);
-        if (defined $name) {
-            $inject = scope_injector_call().$inject;
-        }
-        inject_if_block($inject);
-        if (defined $name) {
-            $name = join('::', Devel::Declare::get_curstash_name(), $name)
-              unless ($name =~ /::/);
-            shadow(sub (&) {
-                no strict 'refs';
-                # So caller() gets the subroutine name
-                *{$name} = subname $name => shift;
-            });
-        } else {
-            shadow(sub (&) { shift });
-        }
-
-        DEBUG("parser done\n");
-    }
-
-    sub inject_scope {
-        $^H |= 0x120000;
-        $^H{DD_METHODHANDLERS} = Scope::Guard->new(sub {
-            my $linestr = Devel::Declare::get_linestr;
-            my $offset = Devel::Declare::get_linestr_offset;
-            substr($linestr, $offset, 0) = ';';
-            Devel::Declare::set_linestr($linestr);
-        });
-    }
-}
-
-
 =head1 PERFORMANCE
 
 There is no run-time performance penalty for using this module above
@@ -758,15 +620,7 @@ Please report bugs and leave feedback at
 E<lt>bug-Method-SignaturesE<gt> at E<lt>rt.cpan.orgE<gt>.  Or use the
 web interface at L<http://rt.cpan.org>.  Report early, report often.
 
-=head2 C<method> is not declared at compile time.
-
-Unlike declaring a C<sub>, C<method> currently does not happen at
-compile time.  This usually isn't a problem.  It may change, but it
-may be a good thing.
-
 =head2 Debugging
-
-This totally breaks the debugger.  Will have to wait on Devel::Declare fixes.
 
 You can see the Perl code Method::Signatures translates to by using B::Deparse.
 
@@ -876,8 +730,8 @@ Method traits.
 Most of this module is based on or copied from hard work done by many
 other people.
 
-All the really scary parts are copied from or rely on Matt Trout's
-L<Devel::Declare> work.
+All the really scary parts are copied from or rely on Matt Trout's,
+Florian Ragwitz's and Rhesa Rozendaal's L<Devel::Declare> work.
 
 The prototype syntax is a slight adaptation of all the
 excellent work the Perl 6 folks have already done.
@@ -888,7 +742,8 @@ makes the subroutine names come out right in caller().
 
 And thanks to Florian Ragwitz for his parallel
 L<MooseX::Method::Signatures> module from which I borrow ideas and
-code.
+code and L<Devel::BeginLift> which lets the methods be declared
+at compile time.
 
 
 =head1 LICENSE

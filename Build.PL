@@ -17,15 +17,16 @@ my $build = Module::Build->new(
     build_requires      => {
         'Module::Build'     => '0.26',
         'Test::More'        => '0.82',
+        'Test::Builder'     => '0.82',
         'Test::Warn'        => '0.10',
     },
 
     requires        => {
         'perl'              => '5.8.1',
 
-        'Devel::Declare'    => '0.002000',
+        'Devel::Declare::MethodInstaller::Simple' => '0.003003',
+        'Devel::BeginLift'  => '0.001001',
         'Data::Alias'       => '1.07',
-        'Sub::Name'         => '0.04',
         'Readonly'          => '1.03',
         PPI                 => '1.203',
     },

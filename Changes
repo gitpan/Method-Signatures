@@ -1,3 +1,16 @@
+20081028  Tue Oct 28 00:45:48 PDT 2008
+    New Features
+    * Two or more slurpy parameters (ie. @foo or %bar) in a signature is
+      an error.
+
+    Bug Fixes
+    * The debugger now works, thanks to an upgrade in Devel::Declare.
+    * methods are now declared at compile time, like regular subs.
+
+    Other
+    * Added some simple example files.
+
+
 20081021.1911  Tue Oct 21 19:11:47 PDT 2008
     Test Fixes
     * Used a new feature of Test::Builder, upgrade dependency.
