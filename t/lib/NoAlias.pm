@@ -1,21 +1,15 @@
-#!/usr/bin/perl -w
+package NoAlias;
 
-use strict;
-use warnings;
-
-use Test::More;
-
-BEGIN {
-    plan skip_all => "Data::Alias not available" unless eval { require Data::Alias };
-    plan 'no_plan';
-}
+# This is here to test the compile time error of missing Data::Alias.
 
 {
     package Stuff;
 
     use Test::More;
     use Method::Signatures;
+    BEGIN { $Method::Signatures::HAVE_DATA_ALIAS = 0; }
 
+#line 13 NoAlias.pm
     method add_meaning($arg is alias) {
         $arg += 42;
     }

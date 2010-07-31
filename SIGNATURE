@@ -1,5 +1,5 @@
 This file contains message digests of all files listed in MANIFEST,
-signed via the Module::Signature module, version 0.55.
+signed via the Module::Signature module, version 0.61.
 
 To verify the content in this distribution, first make sure you have
 Module::Signature installed, then type:
@@ -14,16 +14,16 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 a1f1d96a3a394a48439f7ae39269bb8bac1931d6 Build.PL
-SHA1 1e4ac30d551888059b36429d469f604d596f9d50 Changes
-SHA1 7f789ca26fa5b54f44cfa70008cdfe571dcea13b MANIFEST
-SHA1 63ed48fa5b27e3248bae4db80c5a18f420bdb1a7 MANIFEST.SKIP
-SHA1 e855265fde401ba700d86bcd54d3e0a4d54fd11d META.yml
+SHA1 81d93e999f72d91fbb04817c85a7592612161ded Build.PL
+SHA1 95487372a789a7c2379cc3b1c3aa9263d11af74b Changes
+SHA1 6abd2d5c6900dc47068586eb5ae5b4b04282632c MANIFEST
+SHA1 f3cc7589e2565376aa9dddd29c980930e0dbff3f MANIFEST.SKIP
+SHA1 664782743492f40560ef743b23beb07682ce2039 META.yml
 SHA1 48c575cb937d7560609e826bdc75c316ba03f1ac examples/iso_date_example.t
 SHA1 4f45476c2016eb1dfa44524757c0e51597541dc2 examples/strip_ws.t
-SHA1 dd8b1a561dec1fa6e8f5570521c1948f0f4c3f11 lib/Method/Signatures.pm
+SHA1 e9e3c8fc16d58d8cf9a2215574a8c7a16094983f lib/Method/Signatures.pm
 SHA1 5d783ad246dc30367de7536a26736c513e445a52 lib/Method/Signatures/Parser.pm
-SHA1 ac6687796e415550e211d720f4b7cfb6d2d09713 t/alias.t
+SHA1 94135bf4db11a2491227221da09da65c850c4bc2 t/alias.t
 SHA1 e33a7883ed81c0d510f705d92e5865249ef49a72 t/anon.t
 SHA1 048a9685c82bc65e29a87729f9d49125995172d4 t/array_param.t
 SHA1 56c303e608886e482fe32e63789b85eb0cdf5894 t/attributes.t
@@ -33,26 +33,29 @@ SHA1 9cdfae3122a6d8117367ddab69b7d2cca82bb958 t/debugger.t
 SHA1 3c36b82d9a94367ca97fa6fd34e8ee9861179f89 t/defaults.t
 SHA1 30c12e887c4ff3e159e2d3930a9867331ac94f9a t/examples/iso_date_example.t
 SHA1 468a41812c70715e918d118d03a527f1f94b8b08 t/examples/silly.t
-SHA1 8038a3b73d8ae52f4279ec8a892d2302b2e19452 t/examples/strip_ws.t
+SHA1 aed0ac6b7faead597865020f342ad83c19cd2da1 t/examples/strip_ws.t
+SHA1 fcc906cb454c78b54c981461887f758ebcae03cd t/func.t
 SHA1 69f92f2f62295b4943c3278e85f8c0765dde8441 t/invocant.t
 SHA1 feba97138c644478ffc4eb25e48642efd86f10e4 t/lib/Dev/Null.pm
+SHA1 83a98648167288d27745ad6faec3bfb86946b12e t/lib/NoAlias.pm
 SHA1 42122c1495016a57f409107bd99d20bbde8996b7 t/method.t
 SHA1 e59f0aa34591b70d20ecd225adacebb824d627ae t/named.t
+SHA1 7c2afd9e1855d357f717a938037194cc50670239 t/no_alias.t
 SHA1 ca0c7bba796c904e5880162bda6150b1afecfe16 t/odd_number.t
 SHA1 959b3127aac54d108c56e618df72f5cc3120f0af t/one_line.t
 SHA1 4948a048798a716684498c3fa45d907dedd301b2 t/optional.t
 SHA1 ac963ac623de4cd1a11b4255404f5d48e6a791e6 t/paren_on_own_line.t
 SHA1 c26f06abfa7f26ccb5bb8dc1cf61fc20c7e2a695 t/paren_plus_open_block.t
-SHA1 ac412403efd72d7018b8c401e28bea1b920d632e t/refs.t
+SHA1 139f8ebe5ef0a1f0bb41aba7ffb4f80abaceeacf t/refs.t
 SHA1 e727cba6a5a1a1d755333cbad6ca47a8f6b40912 t/required.t
 SHA1 a4097872b0c9cc0aa6b89d178b8b5678a959638b t/ro.t
 SHA1 87553506868f050224f996204e1384249690c7d4 t/simple.plx
 SHA1 14fca7ab52397d29feeda54fc5b6efe1beec2488 t/split_proto.t
 SHA1 34bffb52545b96e498169bf81076206714dc82f0 t/traits.t
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.11 (Darwin)
+Version: GnuPG v2.0.13 (Darwin)
 
-iEYEARECAAYFAko8ngoACgkQWMohlhD1QycJAQCdEQ28fEc6tT3nvI0DDBsSWAZ+
-/ewAoNASFo067L4f3sCalTBsvrFcsqki
-=Tsfq
+iEYEARECAAYFAkxTaaYACgkQWMohlhD1Qyf9XACg0sDed1UNFwL3IjiQ8E0eNma/
+/9gAnAnDad8Fr9UkZ0zeo76CUWMsQaY+
+=pqyS
 -----END PGP SIGNATURE-----

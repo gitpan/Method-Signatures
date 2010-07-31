@@ -6,11 +6,9 @@ use warnings;
 use base 'Devel::Declare::MethodInstaller::Simple';
 use Method::Signatures::Parser;
 
-use Devel::BeginLift;
-use Data::Alias ();
 use Readonly;
 
-our $VERSION = '20090620';
+our $VERSION = '20100730';
 
 our $DEBUG = $ENV{METHOD_SIGNATURES_DEBUG} || 0;
 
@@ -22,9 +20,16 @@ sub DEBUG {
 }
 
 
+# For some reason Data::Alias must be loaded at our own compile time.
+our $HAVE_DATA_ALIAS;
+BEGIN {
+    $HAVE_DATA_ALIAS = eval { require Data::Alias; } ? 1 : 0;
+}
+
+
 =head1 NAME
 
-Method::Signatures - method declarations with signatures and no source filter
+Method::Signatures - method and function declarations with signatures and no source filter
 
 =head1 SYNOPSIS
 
@@ -44,14 +49,21 @@ Method::Signatures - method declarations with signatures and no source filter
         return $self->{$key} = $val;
     }
 
+    func hello($greeting, $place) {
+        print "$greeting, $place!\n";
+    }
+
 =head1 DESCRIPTION
 
-This is B<ALPHA SOFTWARE> which relies on B<YET MORE ALPHA SOFTWARE>.
-Use at your own risk.  Features may change.
+Provides two new keywords, C<func> and C<method> so you can write subroutines with signatures instead of having to spell out C<my $self = shift; my($thing) = @_>
 
-Provides a proper method keyword, like "sub" but specificly for making
-methods.  It will automatically provide the invocant as C<$self>.  No
-more C<my $self = shift>.
+C<func> is like C<sub> but takes a signature where the prototype would
+normally go.  This takes the place of C<my($foo, $bar) = @_> and does
+a whole lot more.
+
+C<method> is like C<func> but specificly for making methods.  It will
+automatically provide the invocant as C<$self>.  No more C<my $self =
+shift>.
 
 Also allows signatures, very similar to Perl 6 signatures.
 
@@ -59,6 +71,22 @@ And it does all this with B<no source filters>.
 
 
 =head2 Signature syntax
+
+    func echo($message) {
+        print "$message\n";
+    }
+
+is equivalent to:
+
+    sub echo {
+        my($message) = @_;
+        print "$message\n";
+    }
+
+except the original line numbering is preserved and the arguments are
+checked to make sure they match the signature.
+
+Similarly
 
     method foo($bar, $baz) {
         $self->wibble($bar, $baz);
@@ -71,14 +99,6 @@ is equivalent to:
         my($bar, $baz) = @_;
         $self->wibble($bar, $baz);
     }
-
-except the original line numbering is preserved.
-
-No checks are made that the arguments being passed in match the
-signature.
-
-Future releases will add extensively to the signature syntax probably
-along the lines of Perl 6.
 
 
 =head3 C<@_>
@@ -136,6 +156,10 @@ reference.
 
     my @bar = (1,2,3);
     Stuff->add_one(\@bar);  # @bar is now (2,3,4)
+
+This feature requires L<Data::Alias> to be installed.
+Method::Signatures does not depend on it because it does not currently
+work after 5.10.
 
 
 =head3 Invocant parameter
@@ -325,6 +349,12 @@ sub import {
     $class->install_methodhandler(
         into            => $caller,
         name            => 'method',
+        invocant        => '$self'
+    );
+
+    $class->install_methodhandler(
+        into            => $caller,
+        name            => 'func',
     );
 
     DEBUG("import for $caller done\n");
@@ -337,6 +367,7 @@ sub code_for {
     my $code = $self->SUPER::code_for($name);
 
     if( defined $name ) {
+        require Devel::BeginLift;
         Devel::BeginLift->setup_for_cv($code);
     }
 
@@ -353,24 +384,26 @@ sub _strip_ws {
 # Overriden method from D::D::MS
 sub parse_proto {
     my $self = shift;
-    return $self->parse_method( proto => shift );
+    return $self->parse_signature( proto => shift, invocant => $self->{invocant} );
 }
 
 
-# Parse a method signature
-sub parse_method {
+# Parse a signature
+sub parse_signature {
     my $self = shift;
     my %args = @_;
     my @protos = $self->_split_proto($args{proto} || []);
     my $signature = $args{signature} || {};
 
-    $signature->{invocant} = '$self';
-    if( @protos ) {
-        $signature->{invocant} = $1 if $protos[0] =~ s{^(\S+?):\s*}{};
-        shift @protos unless $protos[0] =~ /\S/;
+    # Special case for methods, they will pass in an invocant to use as the default
+    if( $signature->{invocant} = $args{invocant} ) {
+        if( @protos ) {
+            $signature->{invocant} = $1 if $protos[0] =~ s{^(\S+?):\s*}{};
+            shift @protos unless $protos[0] =~ /\S/;
+        }
     }
 
-    return $self->parse_sub( proto => \@protos, signature => $signature );
+    return $self->parse_func( proto => \@protos, signature => $signature );
 }
 
 
@@ -392,7 +425,7 @@ sub _split_proto {
 
 
 # Parse a subroutine signature
-sub parse_sub {
+sub parse_func {
     my $self = shift;
     my %args = @_;
     my @protos = $self->_split_proto($args{proto} || []);
@@ -505,18 +538,16 @@ sub inject_from_signature {
         push @code, inject_for_sig($sig);
     }
 
-    push @code, 'Method::Signatures::named_param_check(\%args);' if $signature->{overall}{has_named};
+    push @code, 'Method::Signatures::named_param_error(\%args) if %args;' if $signature->{overall}{has_named};
 
     # All on one line.
     return join ' ', @code;
 }
 
 
-sub named_param_check {
+sub named_param_error {
     my $args = shift;
     my @keys = keys %$args;
-
-    return 1 unless @keys;
 
     signature_error("does not take @keys as named argument(s)");
 }
@@ -558,6 +589,15 @@ sub inject_for_sig {
 
     # Handle \@foo
     if ( $sig->{is_ref_alias} or $sig->{traits}{alias} ) {
+        if( !$HAVE_DATA_ALIAS ) {
+            require Carp;
+            # I couldn't get @CARP_NOT to work
+            local %Carp::CarpInternal = %Carp::CarpInternal;
+            $Carp::CarpInternal{"Devel::Declare"} = 1;
+            $Carp::CarpInternal{"Devel::Declare::MethodInstaller::Simple"} = 1;
+            $Carp::CarpInternal{"Method::Signatures"} = 1;
+            Carp::croak("The alias trait was used on $sig->{var}, but Data::Alias is not installed");
+        }
         push @code, sprintf 'Data::Alias::alias(%s = %s);', $lhs, $rhs;
     }
     # Handle "is ro"
@@ -662,10 +702,10 @@ Devel::Declare.
 
 =head2 No source filter
 
-While this module does rely on the hairy black magic of
-L<Devel::Declare> and L<Data::Alias> it does not depend on a source
-filter.  As such, it doesn't try to parse and rewrite your source code
-and there should be no weird side effects.
+While this module does rely on the black magic of L<Devel::Declare> to
+access Perl's own parser, it does not depend on a source filter.  As
+such, it doesn't try to parse and rewrite your source code and there
+should be no weird side effects.
 
 Devel::Declare only effects compilation.  After that, it's a normal
 subroutine.  As such, for all that hairy magic, this module is
@@ -790,7 +830,13 @@ See F<http://www.perl.com/perl/misc/Artistic.html>
 
 =head1 SEE ALSO
 
-L<MooseX::Method::Signatures>, L<Perl6::Signature>, L<Sub::Signatures>, L<Perl6::Subs>
+L<MooseX::Method::Signatures> for a method keyword that works well with Moose.
+
+L<Perl6::Signature> for a more complete implementation of Perl 6 signatures.
+
+L<Method::Signatures::Simple> for a more basic version of what Method::Signatures provides.
+
+L<signatures> for C<sub> with signatures.
 
 Perl 6 subroutine parameters and arguments -  L<http://perlcabal.org/syn/S06.html#Parameters_and_arguments>
 
