@@ -1,5 +1,5 @@
 This file contains message digests of all files listed in MANIFEST,
-signed via the Module::Signature module, version 0.61.
+signed via the Module::Signature module, version 0.66.
 
 To verify the content in this distribution, first make sure you have
 Module::Signature installed, then type:
@@ -14,14 +14,14 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 81d93e999f72d91fbb04817c85a7592612161ded Build.PL
-SHA1 95487372a789a7c2379cc3b1c3aa9263d11af74b Changes
-SHA1 6abd2d5c6900dc47068586eb5ae5b4b04282632c MANIFEST
+SHA1 35e0ff02975bd0d8e654b7742f2d2c0d0bb77f87 Build.PL
+SHA1 ea68044f1d1be90d6e55a82d67535645ff66e270 Changes
+SHA1 143f3152beee5577d113b48482e470f106603f10 MANIFEST
 SHA1 f3cc7589e2565376aa9dddd29c980930e0dbff3f MANIFEST.SKIP
-SHA1 664782743492f40560ef743b23beb07682ce2039 META.yml
+SHA1 f0e329fb401161702daf67cbd6f0b5da9cfbd275 META.yml
 SHA1 48c575cb937d7560609e826bdc75c316ba03f1ac examples/iso_date_example.t
 SHA1 4f45476c2016eb1dfa44524757c0e51597541dc2 examples/strip_ws.t
-SHA1 e9e3c8fc16d58d8cf9a2215574a8c7a16094983f lib/Method/Signatures.pm
+SHA1 170a071539ad017794ab83e16f7ee62b22c0943c lib/Method/Signatures.pm
 SHA1 5d783ad246dc30367de7536a26736c513e445a52 lib/Method/Signatures/Parser.pm
 SHA1 94135bf4db11a2491227221da09da65c850c4bc2 t/alias.t
 SHA1 e33a7883ed81c0d510f705d92e5865249ef49a72 t/anon.t
@@ -37,10 +37,8 @@ SHA1 aed0ac6b7faead597865020f342ad83c19cd2da1 t/examples/strip_ws.t
 SHA1 fcc906cb454c78b54c981461887f758ebcae03cd t/func.t
 SHA1 69f92f2f62295b4943c3278e85f8c0765dde8441 t/invocant.t
 SHA1 feba97138c644478ffc4eb25e48642efd86f10e4 t/lib/Dev/Null.pm
-SHA1 83a98648167288d27745ad6faec3bfb86946b12e t/lib/NoAlias.pm
 SHA1 42122c1495016a57f409107bd99d20bbde8996b7 t/method.t
 SHA1 e59f0aa34591b70d20ecd225adacebb824d627ae t/named.t
-SHA1 7c2afd9e1855d357f717a938037194cc50670239 t/no_alias.t
 SHA1 ca0c7bba796c904e5880162bda6150b1afecfe16 t/odd_number.t
 SHA1 959b3127aac54d108c56e618df72f5cc3120f0af t/one_line.t
 SHA1 4948a048798a716684498c3fa45d907dedd301b2 t/optional.t
@@ -53,9 +51,9 @@ SHA1 87553506868f050224f996204e1384249690c7d4 t/simple.plx
 SHA1 14fca7ab52397d29feeda54fc5b6efe1beec2488 t/split_proto.t
 SHA1 34bffb52545b96e498169bf81076206714dc82f0 t/traits.t
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.13 (Darwin)
+Version: GnuPG v2.0.16 (Darwin)
 
-iEYEARECAAYFAkxTaaYACgkQWMohlhD1Qyf9XACg0sDed1UNFwL3IjiQ8E0eNma/
-/9gAnAnDad8Fr9UkZ0zeo76CUWMsQaY+
-=pqyS
+iEYEARECAAYFAk1bIzgACgkQWMohlhD1Qyfy/QCfetCoubQO9yOdjZLq0zVErD0q
+xZ8AoLxVygHge6YnGdy18HQKJyTdNZRU
+=u9hd
 -----END PGP SIGNATURE-----
