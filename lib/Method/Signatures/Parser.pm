@@ -2,6 +2,7 @@ package Method::Signatures::Parser;
 
 use strict;
 use warnings;
+use Carp;
 
 use base qw(Exporter);
 our @EXPORT = qw(split_proto);
@@ -14,6 +15,7 @@ sub split_proto {
     require PPI;
     my $ppi = PPI::Document->new(\$proto);
     my $statement = $ppi->find_first("PPI::Statement");
+    confess("PPI failed to find statement for '$proto'") unless $statement;
     my $token = $statement->first_token;
 
     my @proto = ('');
@@ -24,7 +26,9 @@ sub split_proto {
         else {
             $proto[-1] .= $token->content;
         }
-    } while( $token = $token->next_sibling );
+
+        $token = $token->class eq 'PPI::Token::Label' ? $token->next_token : $token->next_sibling;
+    } while( $token );
 
     strip_ws($_) for @proto;
     return @proto;
