@@ -1,5 +1,5 @@
 This file contains message digests of all files listed in MANIFEST,
-signed via the Module::Signature module, version 0.66.
+signed via the Module::Signature module, version 0.68.
 
 To verify the content in this distribution, first make sure you have
 Module::Signature installed, then type:
@@ -14,72 +14,87 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 444b2443eed1b81ee487fade6af1f295f75403ab Build.PL
-SHA1 2dd37a2c130947705bfbb8d8b997afe563638fa2 Changes
-SHA1 c339f65a7d6a2f2d5c794f54706bbcf5708db0f8 MANIFEST
-SHA1 fefe72487648ed3a79c88be0c538e2b9dd73fbeb MANIFEST.SKIP
-SHA1 d0820221a45c96c92db0fa0e03dbe20927039738 META.json
-SHA1 15bd5424f83b299d2ed349e38f4d028b10c0a945 META.yml
+SHA1 8073a0bb9840a3b6a81cc7d454d53d5605ed907b Build.PL
+SHA1 95e75c1ed40ef16047463474be1e55e8f322759f Changes
+SHA1 bea72a79349cc8f4bd86ece8146076038abf21be MANIFEST
+SHA1 78039427be99410a749f4362f10c25b9f9583bf5 MANIFEST.SKIP
+SHA1 365aca2441171ec26467a4bb61b89a73fe541c6f META.json
+SHA1 f45b750866caea6a9e66119ddf4a78e3f4a4abe7 META.yml
 SHA1 48c575cb937d7560609e826bdc75c316ba03f1ac examples/iso_date_example.t
 SHA1 4f45476c2016eb1dfa44524757c0e51597541dc2 examples/strip_ws.t
-SHA1 064cd21ae94989c56a22a27a97c5504b4880ddbe lib/Method/Signatures.pm
-SHA1 42c0a1e3dc355fd67748a957625888be0d9eb867 lib/Method/Signatures/Parser.pm
+SHA1 a2f4f7b9cfc1c7f726c99f42d484a4d4cc1ffbb5 lib/Method/Signatures.pm
+SHA1 4d36f9636296ddc3c07000cd1d29c1edc5d5ff68 lib/Method/Signatures/Modifiers.pm
+SHA1 f9b959da66e9557fae7e90eb3c641f580e0878e9 lib/Method/Signatures/Parser.pm
 SHA1 94135bf4db11a2491227221da09da65c850c4bc2 t/alias.t
 SHA1 e33a7883ed81c0d510f705d92e5865249ef49a72 t/anon.t
-SHA1 54b2af62655d4d824972c6d3c2bb906345f17234 t/array_param.t
+SHA1 a341f4e6cf82b54789f3a05a4005e6059e6f0184 t/array_param.t
+SHA1 0b837994e01c85ce1c81f3d15eb0fb2d2b472b63 t/at_underscore.t
 SHA1 56c303e608886e482fe32e63789b85eb0cdf5894 t/attributes.t
-SHA1 68ca9ac65e58293b96e41ad1d5286964dfe32d91 t/begin.t
+SHA1 0b38d39a31b8222cc27100a5c3b3e85099e98658 t/begin.t
 SHA1 275a69045692e21f963a45121dfd69981295a82c t/caller.t
+SHA1 31d58da773fdd8080570551178101b588dc5cbc9 t/comments.t
 SHA1 9cdfae3122a6d8117367ddab69b7d2cca82bb958 t/debugger.t
 SHA1 3c36b82d9a94367ca97fa6fd34e8ee9861179f89 t/defaults.t
-SHA1 a3d092d16631650951ed70fd9dd4ea4e8ed16f68 t/error_reporting.t
-SHA1 30c12e887c4ff3e159e2d3930a9867331ac94f9a t/examples/iso_date_example.t
+SHA1 95334aab4dd1a799e113f8f4999e5dd50275c3d6 t/error_interruption.t
+SHA1 27646c8a56e5f3410b4eab6294feb81c7b936cfa t/error_reporting.t
+SHA1 8d1de3b17f7a2e7ca83af322e28994de907846e7 t/examples/iso_date_example.t
 SHA1 468a41812c70715e918d118d03a527f1f94b8b08 t/examples/silly.t
 SHA1 aed0ac6b7faead597865020f342ad83c19cd2da1 t/examples/strip_ws.t
 SHA1 fcc906cb454c78b54c981461887f758ebcae03cd t/func.t
 SHA1 220f33af5d70fa079d18f3b37a758385f89e9fa4 t/into.t
 SHA1 9c90f3c000a7c6938a8e8be4a0f0164858c3eb7d t/invocant.t
 SHA1 fb5ed9d792a6efc41370f554d40f839d2d0cb9cd t/lib/Bad.pm
-SHA1 b07be9827614943ac21de81d5df223e9c99a8cf9 t/lib/BadType.pm
+SHA1 6457b511399b8323420df4be1ba0383c97051be0 t/lib/BadType.pm
+SHA1 6a103bbf04dccfadae10c863bf71bc3e3b576393 t/lib/BarfyDie.pm
 SHA1 a369415dc76e377beec9a1328b16dc1e973fb611 t/lib/BasicRoleTest.pm
 SHA1 feba97138c644478ffc4eb25e48642efd86f10e4 t/lib/Dev/Null.pm
-SHA1 4da412385486cdf33b4f588d6dd9df8bd6662791 t/lib/GenErrorRegex.pm
+SHA1 e026ff0d089519b1a45be38e372fcf9dececff93 t/lib/GenErrorRegex.pm
 SHA1 dcc0fc5ca81fc419ae0aa38518b02f195825963c t/lib/InnerBadType.pm
-SHA1 1d6c900199ec1866289d3432b33af10fb70ea6cc t/lib/InnerUnknownType.pm
+SHA1 0b91362bbb820a15faa1b69827e4dfc91392335f t/lib/InnerMissingRequired.pm
+SHA1 22c2229bf808e188c4df4cf89f8be911316af0dc t/lib/InnerNoSuchNamed.pm
+SHA1 ca8fb352fb2d6cf021876fc0fc97228837210f3a t/lib/InnerUnknownType.pm
+SHA1 6757ac500fe27f9659a38fccb9cd45e58460cf58 t/lib/MS_MXD_Replace.pm
+SHA1 a96de5cc18d6ad0b23b221f27e6778881b60b1c4 t/lib/MS_MXD_Sub.pm
+SHA1 02dee8603088988715d849ce3372db47a314105f t/lib/MissingRequired.pm
+SHA1 36b03cb437e09b11b9ac7ee19c77ed37f4df7c5d t/lib/ModifierBadType.pm
 SHA1 20f970035e32eb10d320dc141ad64bfb5a410e4f t/lib/MooseLoadTest.pm
 SHA1 bca5b78c009b723b2a4dffe4b041faa10f448098 t/lib/MooseRoleTest.pm
 SHA1 d2bf9ead284235fb97a9bb2490296b6bcacf71b7 t/lib/MouseRoleTest.pm
-SHA1 56a52d2578ba7d48b6dad946643b0b7163ef2b65 t/lib/NoOverrides.pm
-SHA1 6fa25478c96f05e0d1d16ba5f23b3d35c7c9f753 t/lib/OverrideTypeCheck.pm
-SHA1 da15dc719e0a70abc5d84274a6c53f70a273a1fe t/lib/UnknownType.pm
-SHA1 42122c1495016a57f409107bd99d20bbde8996b7 t/method.t
-SHA1 e59f0aa34591b70d20ecd225adacebb824d627ae t/named.t
+SHA1 224470cf331ccc8aec35d59a3edd131f23088c62 t/lib/My/Declare.pm
+SHA1 6eee45876a21b66fda72e097f49f4f187a1f3f23 t/lib/NoOverrides.pm
+SHA1 64ac3bb2a9e9342af9c97993bf06ec7caa3095ac t/lib/NoSuchNamed.pm
+SHA1 164f906a4b9b3b668c2cfb07d6e708d17fa5ce59 t/lib/OverrideErrors.pm
+SHA1 6710e5156b2ef20917c09756c43bfa944e1fee1a t/lib/OverrideModifierErrors.pm
+SHA1 b109aca2f2b5e1488690f56b1383f5f615c8969b t/lib/OverrideTypeCheck.pm
+SHA1 528e5036a4fd365e9c2c88e6d5534c2150b00589 t/lib/UnknownType.pm
+SHA1 dddd0f79b88ce073e19e52d9afe2f059262170a5 t/method.t
+SHA1 526fa3be052ff79718368634e40fe2135a7318f9 t/mxd-replace.t
+SHA1 2e9941a2c461341cb9ae00d42abd393e779a4436 t/mxd-sub.t
+SHA1 c89bb314b06a4839753883c9a3d1b2143b2258db t/named.t
 SHA1 ca0c7bba796c904e5880162bda6150b1afecfe16 t/odd_number.t
 SHA1 959b3127aac54d108c56e618df72f5cc3120f0af t/one_line.t
-SHA1 4948a048798a716684498c3fa45d907dedd301b2 t/optional.t
+SHA1 efd69eed65028d28be661c94243d04d4aad1e52a t/optional.t
+SHA1 b23605dd4c7b2e87a5a26d5b4e1782f41e3c1471 t/override_errors.t
+SHA1 c50177f0e77b3f914598ea65d08e0c695c48a843 t/override_modifier_errors.t
 SHA1 6426a52482506e21e2a3da09695324df10bbb214 t/override_nothing.t
 SHA1 a3f16e125ec4356cb584180bd0ff8e738cf69edc t/override_typecheck.t
 SHA1 ac963ac623de4cd1a11b4255404f5d48e6a791e6 t/paren_on_own_line.t
 SHA1 c26f06abfa7f26ccb5bb8dc1cf61fc20c7e2a695 t/paren_plus_open_block.t
 SHA1 139f8ebe5ef0a1f0bb41aba7ffb4f80abaceeacf t/refs.t
-SHA1 e727cba6a5a1a1d755333cbad6ca47a8f6b40912 t/required.t
+SHA1 75dcf1636219e1cda1cf0c4bb9151d471e4443c8 t/required.t
 SHA1 a4097872b0c9cc0aa6b89d178b8b5678a959638b t/ro.t
 SHA1 94597853075a4a787fd00d4a7b38b30d2267bb87 t/role_check_basic.t
 SHA1 d7f682ed332b4c0b2d1843f41dc4a5d1fa560e5a t/role_check_moose.t
 SHA1 86260623d894e542ec6ad1608497058ed1f5299e t/role_check_mouse.t
 SHA1 87553506868f050224f996204e1384249690c7d4 t/simple.plx
+SHA1 f13f415941b425a888ca546432bb3a87c9531f2a t/slurpy.t
 SHA1 14fca7ab52397d29feeda54fc5b6efe1beec2488 t/split_proto.t
 SHA1 bd8e2c74d7b2060c034fdff5b2f4ae9680ddc328 t/syntax_errors.t
+SHA1 dfc1f9be28749012163133c885feece0089cf2c5 t/too_many_args.t
 SHA1 34bffb52545b96e498169bf81076206714dc82f0 t/traits.t
 SHA1 56d119830a0bf9733de341d47b2bbf8d5f02a9b5 t/type_check.t
+SHA1 933edb22be895146c7d582655846271dc1efe62c t/type_req_opt.t
 SHA1 92debd6c543b1f116ef341b1636d6bdbac046075 t/typeload_moose.t
 SHA1 63bf4db8f6a3c60fedc7511b36046ec721788000 t/typeload_nomoose.t
 SHA1 49abf3aaca9f6615c8440197b8e5b42459c7a414 t/typeload_notypes.t
-SHA1 8c4bba103ae79ac8e555673e9fbc9ef059eca2e8 t/types.t
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.16 (Darwin)
-
-iEYEARECAAYFAk2K0IUACgkQWMohlhD1QydNTgCgmVPJyE+w5T/f0v9ItSMSwjcP
-IdIAnisn9+3XYeKk6wRUUtq+6Qi833K0
-=Xcbd
------END PGP SIGNATURE-----
+SHA1 e0478456ee60ffaba8e2838f27e8fc24d6c672f3 t/types.t

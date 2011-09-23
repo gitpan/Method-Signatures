@@ -1,3 +1,54 @@
+20110923  Fri Sep 23 16:13:46 PDT 2011  [It Takes All Types]
+    Incompatible Changes
+    * Slurpy parameters (@foo and %bar) now must come at the end.
+    * Slurpy parameters cannot be named, they must be positional.
+    * Slurpy parameters are now optional by default. [github #21]
+    * The empty signature takes no arguments. [github #26]
+    * No signature implies the empty signature and takes no arguments.
+      [github #26]
+
+    New Features
+    * Now checking if there are too many arguments. [github #23]
+    * Run-time errors are now class methods, so subclasses can override them.
+    * Method::Signatures::Modifiers allows you to use Method::Signatures
+      with MooseX::Declare and apply method modifiers like before, after
+      and around. [Buddy Burden] [github #14]
+    * compile_at_BEGIN option controls if "method" and "func" are compiled
+      like normal statements or early like "sub". [github #8]
+
+    Bug Fixes
+    * Now depending on a version of Devel::Declare that works with
+      5.13 and up. [github #10]
+    * Now depending on a known good version of Mouse. [github #17]
+    * Improved error messages reporting from the right position in the
+      user's code. [Buddy Burden]
+    * Comments in the signature fixed. [Buddy Burden] [github #13]
+    * Passing in too many positional parameters now generates an error.
+      [github #23]
+    * Fixed a case where we'd eat compilation errors. [github #16]
+    * Optional parameters will no longer fail type checks if they're not
+      passed in. [github #12]
+    * Depending on a new version of Devel::Declare that works with perl
+      5.13 and up. [github #10]
+    * Fix some cases where a compile time error will show up as an error
+      inside PPI.
+
+    Docs
+    * Many grammar fixes and prose improvements [Noirin Plunkett] [github #25]
+    * Slurpy parameters are clearly documented
+    * The rules if a parameter is required or optional are more clear
+    * Clarify that func() has no invocant [github #32]
+    * Mention METHOD_SIGNATURES_DEBUG environment variable for debugging.
+      [github #32]
+    * Documented the "debug" option.
+    * Documented issues with 5.8 and compile_at_BEGIN. [github #8] [github #22]
+
+    Test Fixes
+    * Tests will no longer fail because 5.10.0 and down report
+      different errors on compilation failure. [github #18]
+    * Tests will no longer fail on 5.8. [github #22]
+
+
 20110324.1600_001  Thu, 24 Mar 2011 16:00:38 +1100
     Bug Fix
     * Declare dependency on Any::Moose [github #9]
@@ -35,7 +86,7 @@
 
     Docs
     * Updated the SEE ALSO
-    * Removed the assertion that no checks are done on the signature    
+    * Removed the assertion that no checks are done on the signature
 
 
 20090620  Sat Jun 20 01:26:59 PDT 2009
