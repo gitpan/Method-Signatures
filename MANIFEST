@@ -82,4 +82,3 @@ t/typeload_moose.t
 t/typeload_nomoose.t
 t/typeload_notypes.t
 t/types.t
-SIGNATURE    Added here by Module::Build
