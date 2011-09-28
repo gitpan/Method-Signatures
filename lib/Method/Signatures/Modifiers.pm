@@ -141,6 +141,7 @@ sub import
 {
     my ($class) = @_;
 
+    # intercept the parse() method that handles the 'method' keyword
     require MooseX::Declare::Syntax::Keyword::Method;
     my $meta = MooseX::Declare::Syntax::Keyword::Method->meta;
     $meta->make_mutable();
@@ -150,14 +151,18 @@ sub import
         {
             my ($orig, $self, $ctx) = @_;
 
+            # have to rebless the MooseX::Declare::Context's Devel::Declare::Context::Simple object into our class
+            # since we're ultimately descended from DDCS, this should work
             my $ms = bless $ctx->_dd_context, $class;
             # have to sneak the default invocant in there
             $ms->{invocant} = '$self';
+            # this sets some things in $ms that were already set, but that's pretty much unavoidable
             $ms->parser($ms->declarator, $ms->offset);
         }
     );
     $meta->make_immutable();
 
+    # intercept the parse() method that handles method modifiers
     require MooseX::Declare::Syntax::Keyword::MethodModifier;
     $meta = MooseX::Declare::Syntax::Keyword::MethodModifier->meta;
     $meta->make_mutable();
@@ -167,6 +172,8 @@ sub import
         {
             my ($orig, $self, $ctx) = @_;
 
+            # have to rebless the MooseX::Declare::Context's Devel::Declare::Context::Simple object into our class
+            # since we're ultimately descended from DDCS, this should work
             my $ms = bless $ctx->_dd_context, $class;
             # have to sneak the default invocant in there
             $ms->{invocant} = '$self';
@@ -174,6 +181,7 @@ sub import
             $ms->{is_modifier} = 1;
             # and have to get the $orig in there if it's an around
             $ms->{pre_invocant} = '$orig' if $ms->declarator eq 'around';
+            # this sets some things in $ms that were already set, but that's pretty much unavoidable
             $ms->parser($ms->declarator, $ms->offset);
         }
     );
@@ -202,7 +210,7 @@ sub import
 #   *   Figures out which modifier we're adding (e.g., before, after, around, etc) and then figures
 #       out which method to call to add that modifier.
 #
-#   *   Checks for a few basic errors (unknown type of modifier, modifier to an unknown method).
+#   *   Checks for basic errors (such as unknown type of modifier).
 #
 #   *   Adds the modifier.
 #
@@ -229,8 +237,6 @@ sub code_for
 
                 require Carp;
             Carp::confess("cannot create method modifier for $modtype") unless $meta->can($add);
-            Carp::confess("cannot create $modtype modifier in package $class for non-existent method $name")
-                    unless $class->can($name);
 
             no strict 'refs';
             my $code = subname "${class}::$name" => shift;

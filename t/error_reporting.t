@@ -17,6 +17,8 @@ use Test::Exception;
 #
 # The errors we're concerned about are:
 #
+#   *)  The error thrown when you fail to pass a required argument.
+#   *)  The error thrown when you pass a named argument that was not declared.
 #   *)  The error thrown when you try to pass a type that is unrecognized.
 #   *)  The error thrown when you try to pass an argument of the wrong type.
 #
@@ -98,7 +100,7 @@ SKIP:
         before      =>  'Int',
         around      =>  'Int',
         after       =>  'Num',
-        override    =>  'Num',
+        override    =>  'Int',
         augment     =>  'Num',
     );
 
