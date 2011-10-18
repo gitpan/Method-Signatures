@@ -8,7 +8,7 @@ use Method::Signatures::Parser;
 use Data::Alias;
 use Devel::Pragma qw(:all);
 
-our $VERSION = '20110927.2305_001';
+our $VERSION = '20111017.2055_002';
 
 our $DEBUG = $ENV{METHOD_SIGNATURES_DEBUG} || 0;
 
@@ -508,20 +508,6 @@ sub import {
     );
 
     DEBUG("import for $caller done\n");
-}
-
-
-# Generally, the code that calls inject_if_block decides what to put in front of the actual
-# subroutine body.  For instance, if it's an anonymous sub, the $before parameter would contain
-# "sub ".  In our case, we want the "sub " all the time: it fixes a weird error on Perl 5.10,
-# and doesn't cause any problems anywhere else.
-sub inject_if_block
-{
-    my ($self, $inject, $before) = @_;
-
-    $before = 'sub ' unless $before;
-
-    $self->SUPER::inject_if_block($inject, $before);
 }
 
 

@@ -27,6 +27,7 @@ t/examples/strip_ws.t
 t/func.t
 t/into.t
 t/invocant.t
+t/larna.t
 t/lib/Bad.pm
 t/lib/BadType.pm
 t/lib/BarfyDie.pm
