@@ -19,6 +19,7 @@ my $build = Module::Build->new(
         'Test::More'        => '0.82',
         'Test::Builder'     => '0.82',
         'Test::Warn'        => '0.10',
+        'Test::Exception'   => '0.29',
     },
 
     requires        => {
@@ -34,6 +35,10 @@ my $build = Module::Build->new(
         'Any::Moose'        => '0.11',
         Mouse               => '0.64',
         'Sub::Name'         => '0.03',
+    },
+
+    recommends      => {
+        'Moose'             => '0.96',
     },
 
     dist_author     => 'Michael G Schwern <schwern@pobox.com>',
