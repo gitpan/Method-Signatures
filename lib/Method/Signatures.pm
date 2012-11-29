@@ -8,7 +8,7 @@ use Method::Signatures::Parser;
 use Data::Alias;
 use Devel::Pragma qw(my_hints);
 
-our $VERSION = '20121108.0047_001';
+our $VERSION = '20121128.2139_001';
 
 our $DEBUG = $ENV{METHOD_SIGNATURES_DEBUG} || 0;
 
@@ -721,7 +721,12 @@ sub inject_if_block
     }
 
     DEBUG( "inject: $inject\n" );
-    $self->SUPER::inject_if_block($inject, $before);
+    DEBUG( "before: $before\n" );
+    DEBUG( "linestr before: ".$self->get_linestr."\n" ) if $DEBUG;
+    my $ret = $self->SUPER::inject_if_block($inject, $before);
+    DEBUG( "linestr after: ". $self->get_linestr."\n" ) if $DEBUG;
+
+    return $ret;
 }
 
 
@@ -1008,7 +1013,7 @@ sub inject_from_signature {
 sub too_many_args_error {
     my($class, $max_args) = @_;
 
-    $class->signature_error("was given too many arguments, it expects $max_args");
+    $class->signature_error("was given too many arguments; it expects $max_args");
 }
 
 
