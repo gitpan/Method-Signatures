@@ -8,7 +8,7 @@ use Method::Signatures::Parser;
 use Data::Alias;
 use Devel::Pragma qw(my_hints);
 
-our $VERSION = '20121201';
+our $VERSION = '20121219.0033_001';
 
 our $DEBUG = $ENV{METHOD_SIGNATURES_DEBUG} || 0;
 
@@ -122,8 +122,7 @@ The full signature syntax for each parameter is:
        Default value____________________________________/            |
        When default value should be applied_________________________/
 
-Every component except the parameter name is optional.  Note that you
-cannot use both \ and : in front of the variable name.
+Every component except the parameter name (with sigil) is optional.
 
 C<$SM_EXPR> is any expression that is valid as the RHS of a smartmatch,
 or else a raw block of code. See L<"Value constraints">.
@@ -188,7 +187,6 @@ reference.
     my @bar = (1,2,3);
     Stuff->add_one(\@bar);  # @bar is now (2,3,4)
 
-Named parameters cannot be aliased in this way.
 
 
 =head3 Invocant parameter
@@ -284,7 +282,7 @@ certainly C<when undef>:
 
 which covers the common case where an uninitialized variable is passed
 as an argument, or where supplying an explicit undefined value is
-intended to indicate: "use the default instead".
+intended to indicate: "use the default instead."
 
 This usage is sufficiently common that a short-cut is provided:
 using the C<//=> operator (instead of the regular assignment operator)
@@ -571,6 +569,9 @@ I<required>.
 The @_ signature is a special case which only shifts C<$self>.  It
 leaves the rest of C<@_> alone.  This way you can get $self but do the
 rest of the argument handling manually.
+
+Note that a signature of C<(@_)> is exactly equivalent to a signature
+of C<(...)>.  See L<"The yada yada marker">.
 
 
 =head3 The empty signature
@@ -925,22 +926,22 @@ sub _check_sig {
     my($self, $sig, $signature) = @_;
 
     if( $sig->{is_slurpy} ) {
-        $self->signature_error("signature can only have one slurpy parameter") if
-          $signature->{overall}{num_slurpy} >= 1;
-        $self->signature_error("slurpy parameter $sig->{var} cannot be named, use a reference instead") if
-          $sig->{named};
+        sig_parsing_error("Signature can only have one slurpy parameter")
+                if $signature->{overall}{num_slurpy} >= 1;
+        sig_parsing_error("Slurpy parameter '$sig->{var}' cannot be named; use a reference instead")
+                if $sig->{named};
     }
 
     if( $sig->{named} ) {
         if( $signature->{overall}{num_optional_positional} ) {
             my $pos_var = $signature->{positional}[-1]{var};
-            die("named parameter $sig->{var} mixed with optional positional $pos_var\n");
+            sig_parsing_error("Named parameter '$sig->{var}' mixed with optional positional '$pos_var'");
         }
     }
     else {
         if( $signature->{overall}{num_named} ) {
             my $named_var = $signature->{named}[-1]{var};
-            die("positional parameter $sig->{var} after named param $named_var\n");
+            sig_parsing_error("Positional parameter '$sig->{var}' after named param '$named_var'");
         }
     }
 }
@@ -959,7 +960,7 @@ sub _check_signature {
     )
     {
         my($slurpy_param) = $self->_find_slurpy_params;
-        $self->signature_error("slurpy parameter $slurpy_param->{var} must come at the end");
+        sig_parsing_error("Slurpy parameter '$slurpy_param->{var}' must come at the end");
     }
 }
 
@@ -988,7 +989,7 @@ sub inject_from_signature {
 
     if( @{$signature->{named}} ) {
         my $first_named_idx = @{$signature->{positional}};
-        push @code, "my \%args = \@_[$first_named_idx..\$#_];";
+        push @code, "Data::Alias::alias( my (\%args) = \@_[$first_named_idx..\$#_] );";
 
         for my $sig (@{$signature->{named}}) {
             push @code, $self->inject_for_sig($sig);
@@ -1053,11 +1054,12 @@ sub inject_for_sig {
 
     # These are the defaults.
     my $lhs = "my $sig->{var}";
-    my $rhs;
+    my ($rhs, $deletion_target);
 
     if( $sig->{named} ) {
         $sig->{passed_in} = "\$args{$sig->{name}}";
-        $rhs = "delete $sig->{passed_in}";
+        $rhs = $deletion_target = $sig->{passed_in};
+        $rhs = "${sigil}{$rhs}" if $sig->{is_ref_alias};
     }
     else {
         $rhs = $sig->{is_ref_alias}       ? "${sigil}{\$_[$idx]}" :
@@ -1105,6 +1107,9 @@ sub inject_for_sig {
     } else {
         push @code, "$lhs = $rhs;";
     }
+
+    # Named arg has been handled, so don't pass to error handler
+    push @code, "delete( $deletion_target );" if $deletion_target;
 
     # Handle 'where' constraints (after defaults are resolved)
     if ( $sig->{where} ) {
@@ -1417,6 +1422,9 @@ appear to fail where there is no reason to fail.
 We recommend you use the L<compile_at_BEGIN> flag to turn off
 compile-time parsing.
 
+You can't use any feature that requires a smartmatch expression (i.e.
+conditional L<"Defaults"> and L<"Value Constraints"> in Perl 5.8.
+
 Method::Signatures cannot be used with Perl versions prior to 5.8
 because L<Devel::Declare> does not work with those earlier versions.
 
@@ -1527,7 +1535,7 @@ code.
 
 The original code was taken from Matt S. Trout's tests for L<Devel::Declare>.
 
-Copyright 2007-2011 by Michael G Schwern E<lt>schwern@pobox.comE<gt>.
+Copyright 2007-2012 by Michael G Schwern E<lt>schwern@pobox.comE<gt>.
 
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
@@ -1542,6 +1550,8 @@ L<MooseX::Method::Signatures> for an alternative implementation.
 L<Perl6::Signature> for a more complete implementation of Perl 6 signatures.
 
 L<Method::Signatures::Simple> for a more basic version of what Method::Signatures provides.
+
+L<Function::Parameters> for a subset of Method::Signature's features without using L<Devel::Declare>.
 
 L<signatures> for C<sub> with signatures.
 

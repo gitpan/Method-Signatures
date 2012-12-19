@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 use lib 't/lib';
-use GenErrorRegex qw< required_error named_param_error badtype_error badval_error >;
+use GenErrorRegex;                                                      # error-generating subs imported below
 
 use Test::More;
 use Test::Exception;
@@ -29,53 +29,120 @@ use Test::Exception;
 #
 # Ready? Here we go.
 
-my %run_time_errors =
+my %compile_time_errors =
 (
-    MissingRequired =>  {
-                            method      =>  'bar',
-                            error_gen   =>  'required_error',
-                            error_args  =>  [
-                                                'InnerMissingRequired',
-                                                '$bar',
-                                                'foo',
-                                            ],
-                            test_name   =>  'missing required param reports correctly',
-                        },
-    NoSuchNamed     =>  {
-                            method      =>  'bar',
-                            error_gen   =>  'named_param_error',
-                            error_args  =>  [
-                                                'InnerNoSuchNamed',
-                                                'bmoogle',
-                                                'foo',
-                                            ],
-                            test_name   =>  'no such named param reports correctly',
-                        },
-    UnknownType     =>  {
-                            method      =>  'bar',
-                            error_gen   =>  'badtype_error',
-                            error_args  =>  [
-                                                'InnerUnknownType',
-                                                'Foo::Bmoogle',
-                                                'perhaps you forgot to load it?',
-                                                'foo',
-                                            ],
-                            test_name   =>  'unrecognized type reports correctly',
-                        },
-    BadType         =>  {
-                            method      =>  'bar',
-                            error_gen   =>  'badval_error',
-                            error_args  =>  [
-                                                'InnerBadType',
-                                                'bar',
-                                                'Int',
-                                                'thing',
-                                                'foo',
-                                            ],
-                            test_name   =>  'incorrect type reports correctly',
-                        },
+    BadParameter        =>  {
+                                error_gen   =>  'bad_param_error',
+                                error_args  =>  [
+                                                    '&$bar',
+                                                ],
+                                test_name   =>  'illegal param spec reports correctly',
+                            },
+    TrailingGarbage     =>  {
+                                error_gen   =>  'unexpected_after_error',
+                                error_args  =>  [
+                                                    '&',
+                                                ],
+                                test_name   =>  'trailing code after param reports correctly',
+                            },
+    NamedAfterOptPos    =>  {
+                                error_gen   =>  'named_after_optpos_error',
+                                error_args  =>  [
+                                                    '$baz',
+                                                    '$bar',
+                                                ],
+                                test_name   =>  'named param following optional positional reports correctly',
+                            },
+    PosAfterNamed       =>  {
+                                error_gen   =>  'pos_after_named_error',
+                                error_args  =>  [
+                                                    '$baz',
+                                                    '$bar',
+                                                ],
+                                test_name   =>  'positional param following named reports correctly',
+                            },
+    MispositionedSlurpy =>  {
+                                error_gen   =>  'mispositioned_slurpy_error',
+                                error_args  =>  [
+                                                    '@bar',
+                                                ],
+                                test_name   =>  'mispositioned slurpy param reports correctly',
+                            },
+    MultipleSlurpy =>       {
+                                error_gen   =>  'multiple_slurpy_error',
+                                error_args  =>  [
+                                                ],
+                                test_name   =>  'multiple slurpy params reports correctly',
+                            },
+    NamedSlurpy =>          {
+                                error_gen   =>  'named_slurpy_error',
+                                error_args  =>  [
+                                                    '@bar',
+                                                ],
+                                test_name   =>  'named slurpy param reports correctly',
+                            },
 );
 
+my %run_time_errors =
+(
+    MissingRequired     =>  {
+                                method      =>  'bar',
+                                error_gen   =>  'required_error',
+                                error_args  =>  [
+                                                    'InnerMissingRequired',
+                                                    '$bar',
+                                                    'foo',
+                                                ],
+                                test_name   =>  'missing required param reports correctly',
+                            },
+    NoSuchNamed         =>  {
+                                method      =>  'bar',
+                                error_gen   =>  'named_param_error',
+                                error_args  =>  [
+                                                    'InnerNoSuchNamed',
+                                                    'bmoogle',
+                                                    'foo',
+                                                ],
+                                test_name   =>  'no such named param reports correctly',
+                            },
+    UnknownType         =>  {
+                                method      =>  'bar',
+                                error_gen   =>  'badtype_error',
+                                error_args  =>  [
+                                                    'InnerUnknownType',
+                                                    'Foo::Bmoogle',
+                                                    'perhaps you forgot to load it?',
+                                                    'foo',
+                                                ],
+                                test_name   =>  'unrecognized type reports correctly',
+                            },
+    BadType             =>  {
+                                method      =>  'bar',
+                                error_gen   =>  'badval_error',
+                                error_args  =>  [
+                                                    'InnerBadType',
+                                                    'bar',
+                                                    'Int',
+                                                    'thing',
+                                                    'foo',
+                                                ],
+                                test_name   =>  'incorrect type reports correctly',
+                            },
+);
+
+# this is *much* easier (and less error-prone) than having to update the import list manually up top
+GenErrorRegex->import( map { $_->{error_gen} } values %compile_time_errors, values %run_time_errors );
+
+
+while (my ($testclass, $test) = each %compile_time_errors)
+{
+    (my $testmod = "$testclass.pm") =~ s{::}{/}g;
+    no strict 'refs';
+
+    throws_ok  { require $testmod }
+            $test->{error_gen}->(@{$test->{error_args}}, FILE => "t/lib/$testmod", LINE => 1133),
+            $test->{test_name};
+}
 
 while (my ($testclass, $test) = each %run_time_errors)
 {
