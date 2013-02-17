@@ -7,7 +7,7 @@ use Sub::Name;
 
 use base 'Method::Signatures';
 
-our $VERSION = '20121219.0033_001';
+our $VERSION = '20130216.1729_001';
 
 
 =head1 NAME
@@ -216,7 +216,7 @@ sub code_for
 
     if ($self->{is_modifier})
     {
-        die("can't create an aonymous method modifier") unless $name;
+        die("can't create an anonymous method modifier") unless $name;
 
         my $class = $self->{outer_package};
         my $modtype = $self->declarator;

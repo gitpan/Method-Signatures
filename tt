@@ -1,0 +1,9 @@
+#!perl
+
+use Method::Signatures;
+
+    func foo (
+        $foo,       # $foo might contain )
+        $bar
+    )
+    {}
