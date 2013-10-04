@@ -1,3 +1,19 @@
+20131004.0159_001   Fri Oct  4 01:59:55 PDT 2013
+    Bug Fixes
+    * Removed experimental smartmatch warnings
+    * Don't require Data::Alias for named params unless you have to
+      [github #71]
+
+    Docs
+    * Updated close parend problem to include quotes and a workaround
+      [rt.cpan.org 85925]
+    * Fixed some typos (thanks dsteinbrunner)
+      [github #88]
+
+    Distribution Fixes
+    * Fixed repo link in metadata (thanks dsteinbrunner)
+      [github #87]
+
 20130505    May  5 21:17:45 PDT 2013
     Promoted to full release
 

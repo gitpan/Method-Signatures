@@ -8,7 +8,7 @@ use Method::Signatures::Parser;
 use Method::Signatures::Parameter;
 use Devel::Pragma qw(my_hints);
 
-our $VERSION = '20130505';
+our $VERSION = '20131004.0159_001';
 
 our $DEBUG = $ENV{METHOD_SIGNATURES_DEBUG} || 0;
 
@@ -545,7 +545,7 @@ Parameters declared using C<$arg!> are explicitly I<required>.
 Parameters declared using C<$arg?> are explicitly I<optional>.  These
 declarations override all other considerations.
 
-A parameter is implictly I<optional> if it is a named parameter, has a
+A parameter is implicitly I<optional> if it is a named parameter, has a
 default, or is slurpy.  All other parameters are implicitly
 I<required>.
 
@@ -919,7 +919,7 @@ sub _calculate_max_args {
     # How big can @_ be?
     $overall->{max_argv_size} = ($overall->{num_named} * 2) + $overall->{num_positional};
 
-    # The maxmimum logical arguments (name => value counts as one argument)
+    # The maximum logical arguments (name => value counts as one argument)
     $overall->{max_args} = $overall->{num_named} + $overall->{num_positional};
 
     return;
@@ -996,8 +996,15 @@ sub inject_from_signature {
 
     if( @{$signature->{named}} ) {
         my $first_named_idx = @{$signature->{positional}};
-        require Data::Alias;
-        push @code, "Data::Alias::alias( my (\%args) = \@_[$first_named_idx..\$#_] );";
+        if (grep { $_->is_ref_alias or $_->traits->{alias} } @{$signature->{named}})
+        {
+            require Data::Alias;
+            push @code, "Data::Alias::alias( my (\%args) = \@_[$first_named_idx..\$#_] );";
+        }
+        else
+        {
+            push @code, "my (\%args) = \@_[$first_named_idx..\$#_];";
+        }
 
         for my $sig (@{$signature->{named}}) {
             push @code, $self->inject_for_sig($sig);
@@ -1134,7 +1141,7 @@ sub inject_for_sig {
                     ? "sub $constraint"
                     : $constraint;
             my $error = sprintf q{ %s->where_error(%s, '%s', '%s') }, $class, $var, $var, $constraint;
-            push @code, "$error unless grep { \$_ ~~ $constraint_impl } $var; ";
+            push @code, "$error unless do { use experimental 'smartmatch'; grep { \$_ ~~ $constraint_impl } $var }; ";
         }
     }
 
@@ -1441,10 +1448,11 @@ If you want to write "use Method::Signatures" in a one-liner, do a
 C<-MMethod::Signatures> first.  This is due to a bug/limitation in
 Devel::Declare.
 
-=head2 Close parends in comments
+=head2 Close parends in quotes or comments
 
-Because of the way L<Devel::Declare> parses things, a close parend
-inside a comment could throw off the signature parsing.  For instance:
+Because of the way L<Devel::Declare> parses things, an unbalanced
+close parend inside a quote or comment could throw off the signature
+parsing.  For instance:
 
     func foo (
         $foo,       # $foo might contain )
@@ -1461,6 +1469,23 @@ this:
     )
 
 is fine, because the parends in the comments are balanced.
+
+If you absolutely can't avoid an unbalanced close parend, such as in
+the following signature:
+
+    func foo ( $foo, $bar = ")" )       # this won't parse correctly
+
+you can always use a backslash to tell the parser that that close
+parend doesn't indicate the end of the signature:
+
+    func foo ( $foo, $bar = "\)" )      # this is fine
+
+This even works in single quotes:
+
+    func foo ( $foo, $bar = '\)' )      # default is ')', *not* '\)'!
+
+although we don't recomment that form, as it may be surprising to
+readers of your code.
 
 =head2 No source filter
 
