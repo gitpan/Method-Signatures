@@ -3,12 +3,12 @@ package Method::Signatures;
 use strict;
 use warnings;
 
+use Lexical::SealRequireHints;
 use base 'Devel::Declare::MethodInstaller::Simple';
 use Method::Signatures::Parser;
 use Method::Signatures::Parameter;
-use Devel::Pragma qw(my_hints);
 
-our $VERSION = '20131010';
+our $VERSION = '20140220.0106_001';
 
 our $DEBUG = $ENV{METHOD_SIGNATURES_DEBUG} || 0;
 
@@ -21,6 +21,12 @@ sub DEBUG {
 
     require Data::Dumper;
     print STDERR "DEBUG: ", map { ref $_ ? Data::Dumper::Dumper($_) : $_ } @_;
+}
+
+# copied from Devel::Pragma
+sub my_hints() {
+    $^H |= 0x20000;
+    return \%^H;
 }
 
 
@@ -188,6 +194,8 @@ reference.
 
     my @bar = (1,2,3);
     Stuff->add_one(\@bar);  # @bar is now (2,3,4)
+
+This feature requires L<Data::Alias> to be installed.
 
 
 
@@ -427,7 +435,8 @@ Most parameters have a default traits of C<is rw is copy>.
 
 =item B<ro>
 
-Read-only.  Assigning or modifying the parameter is an error.
+Read-only.  Assigning or modifying the parameter is an error.  This trait
+requires L<Const::Fast> to be installed.
 
 =item B<rw>
 
@@ -444,7 +453,8 @@ This is a default trait except for the C<\@foo> parameter (see L<Aliased referen
 =item B<alias>
 
 The parameter will be an alias of the argument.  Any changes to the
-parameter will be reflected in the caller.
+parameter will be reflected in the caller.  This trait requires
+L<Data::Alias> to be installed.
 
 This is a default trait for the C<\@foo> parameter (see L<Aliased references>).
 
