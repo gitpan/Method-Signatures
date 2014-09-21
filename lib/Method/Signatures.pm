@@ -9,7 +9,7 @@ use Method::Signatures::Utils;
 use Method::Signatures::Parameter;
 use Method::Signatures::Signature;
 
-our $VERSION = '20140806.0226_001';
+our $VERSION = '20140920.1910_001';
 
 our $DEBUG = $ENV{METHOD_SIGNATURES_DEBUG} || 0;
 
@@ -57,19 +57,22 @@ Method::Signatures - method and function declarations with signatures and no sou
 
 =head1 DESCRIPTION
 
-Provides two new keywords, C<func> and C<method>, so that you can write subroutines with signatures instead of having to spell out C<my $self = shift; my($thing) = @_>
+Provides two new keywords, C<func> and C<method>, so that you can write
+subroutines with signatures instead of having to spell out
+C<my $self = shift; my($thing) = @_>
 
 C<func> is like C<sub> but takes a signature where the prototype would
 normally go.  This takes the place of C<my($foo, $bar) = @_> and does
 a whole lot more.
 
 C<method> is like C<func> but specifically for making methods.  It will
-automatically provide the invocant as C<$self>.  No more C<my $self =
-shift>.
+automatically provide the invocant as C<$self> (L<by default|/invocant>).
+No more C<my $self = shift>.
 
 Also allows signatures, very similar to Perl 6 signatures.
 
-Also does type checking, understanding all the types that Moose (or Mouse) would understand.
+Also does type checking, understanding all the types that Moose (or Mouse)
+would understand.
 
 And it does all this with B<no source filters>.
 
@@ -194,7 +197,7 @@ This feature requires L<Data::Alias> to be installed.
 =head3 Invocant parameter
 
 The method invocant (i.e. C<$self>) can be changed as the first
-parameter.  Put a colon after it instead of a comma.
+parameter on a per-method basis. Put a colon after it instead of a comma:
 
     method foo($class:) {
         $class->bar;
@@ -204,8 +207,12 @@ parameter.  Put a colon after it instead of a comma.
         $class->things($arg, $another);
     }
 
-C<method> has an implied default invocant of C<$self:>.  C<func> has
-no invocant.
+C<method> has an implied default invocant of C<$self:>, though that is
+configurable by setting the L<invocant parameter|/invocant> on the
+C<use Method::Signatures> line.
+
+C<func> has no invocant, as it is intended for creating subs that will not
+be invoked on an object.
 
 
 =head3 Defaults
@@ -231,7 +238,7 @@ Almost any expression can be used as a default.
     }
 
 Normally, defaults will only be used if the argument is not passed in at all.
-Passing in C<undef> will override the default.  That means...
+Passing in C<undef> will override the default.  That means ...
 
     Class->add();            # $this = 23, $that = 42
     Class->add(99);          # $this = 99, $that = 42
@@ -517,7 +524,7 @@ that are passed to it:
 
     # Traverse tree with node-printing callback
     # (Callback only interested in nodes, ignores any other args passed to it)
-    $tree->traverse( func($node,...) { $node->print } );
+    $tree->traverse( func($node, ...) { $node->print } );
 
 The C<...> may appear as a separate "pseudo-parameter" anywhere in the
 signature, but is normally placed at the very end. It has no other
@@ -601,6 +608,24 @@ Method::Signatures takes some options at `use` time of the form
 
     use Method::Signatures { option => "value", ... };
 
+=head3 invocant
+
+In some cases it is desirable for the invocant to be named something other
+than C<$self>, and specifying it in the signature of every method is tedious
+and prone to human-error. When this option is set, methods that do not specify
+the invocant variable in their signatures will use the given variable name.
+
+    use Method::Signatures { invocant => '$app' };
+
+    method main { $app->config; $app->run; $app->cleanup; }
+
+Note that the leading sigil I<must> be provided, and the value must be a single
+token that would be valid as a perl variable. Currently only scalar invocant
+variables are supported (eg, the sigil must be a C<$>).
+
+This option only affects the packages in which it is used. All others will
+continue to use C<$self> as the default invocant variable.
+
 =head3 compile_at_BEGIN
 
 By default, named methods and funcs are evaluated at compile time, as
@@ -670,16 +695,28 @@ sub import {
     my $caller = caller;
     # default values
 
+    # default invocant var - end-user can change with 'invocant' option.
+    my $inv_var = '$self';
+
     my $hints = my_hints;
     $hints->{METHOD_SIGNATURES_compile_at_BEGIN} = 1;  # default to on
 
     my $arg = shift;
     if (defined $arg) {
         if (ref $arg) {
-            $DEBUG  = $arg->{debug}  if exists $arg->{debug};
-            $caller = $arg->{into}   if exists $arg->{into};
+            $DEBUG  = $arg->{debug}     if exists $arg->{debug};
+            $caller = $arg->{into}      if exists $arg->{into};
             $hints->{METHOD_SIGNATURES_compile_at_BEGIN} = $arg->{compile_at_BEGIN}
-                                     if exists $arg->{compile_at_BEGIN};
+                                        if exists $arg->{compile_at_BEGIN};
+            if (exists $arg->{invocant}) {
+                $inv_var = $arg->{invocant};
+                # ensure (for now) the specified value is a valid variable
+                # name (with '$' sigil) and nothing more.
+                if ($inv_var !~ m{ \A \$ [^\W\d]\w* \z }x) {
+                    require Carp;
+                    Carp::croak("Invalid invocant name: '$inv_var'");
+                }
+            }
         }
         elsif ($arg eq ':DEBUG') {
             $DEBUG = 1;
@@ -693,7 +730,7 @@ sub import {
     $class->install_methodhandler(
         into            => $caller,
         name            => 'method',
-        invocant        => '$self'
+        invocant        => $inv_var,
     );
 
     $class->install_methodhandler(
@@ -702,6 +739,7 @@ sub import {
     );
 
     DEBUG("import for $caller done\n");
+    DEBUG("method invocant is '$inv_var'\n");
 }
 
 
@@ -794,7 +832,7 @@ sub parse_proto {
     );
 
     # Then turn it into Perl code
-    my $inject = $self->inject_from_signature($self->{signature});
+    my $inject = $self->inject_from_signature();
 
     return $inject;
 }
@@ -804,7 +842,9 @@ sub parse_proto {
 sub inject_from_signature {
     my $self      = shift;
     my $class     = ref $self || $self;
-    my $signature = shift;
+    my $signature = $self->{signature};
+
+    $self->{line_number} = 1;
 
     my @code;
     push @code, "my @{[$signature->pre_invocant]} = shift;" if $signature->pre_invocant;
@@ -838,6 +878,9 @@ sub inject_from_signature {
     my $max_args = $signature->max_args;
     push @code, qq[$class->too_many_args_error($max_args) if \@_ > $max_argv; ]
         unless $max_argv == $INF;
+
+    # Add any additional trailing newlines so the body is on the right line.
+    push @code, $self->inject_newlines( $signature->num_lines - $self->{line_number} );
 
     # All on one line.
     return join ' ', @code;
@@ -880,6 +923,9 @@ sub inject_for_sig {
     return if $sig->is_at_underscore;
 
     my @code;
+
+    # Add any necessary leading newlines so line numbers are preserved.
+    push @code, $self->inject_newlines($sig->first_line_number - $self->{line_number});
 
     my $sigil = $sig->sigil;
     my $name  = $sig->variable_name;
@@ -960,8 +1006,27 @@ sub inject_for_sig {
 		push @code, "$error unless do { no if \$] >= 5.017011, warnings => 'experimental::smartmatch'; grep { \$_ ~~ $constraint_impl } $var }; ";
     }
 
+    # Record the current line number for the next injection.
+    $self->{line_number} = $sig->first_line_number;
+
     return @code;
 }
+
+sub __magic_newline() { die "newline() should never be called"; }
+
+# Devel::Declare cannot normally inject multiple lines.
+# This is a way to trick it, the parser will continue through
+# a function call with a newline in the argument list.
+sub inject_newlines {
+    my $self = shift;
+    my $num_newlines = shift;
+
+    return if $num_newlines == 0;
+
+    return sprintf q[ Method::Signatures::__magic_newline(%s) if 0; ],
+                   "\n" x $num_newlines;
+}
+
 
 # A hook for extension authors
 # (see also type_check below)

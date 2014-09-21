@@ -62,6 +62,10 @@ has variable    =>
   isa           => 'Str',
   default       => '';
 
+has first_line_number =>
+  is            => 'rw',
+  isa           => 'Int';
+
 has position    =>
   is            => 'rw',
   isa           => 'Maybe[Int]',  # XXX 0 or positive int
@@ -305,7 +309,14 @@ sub _extract_until {
 
     while (@$tokens) {
         last if $tokens->[0] =~ $delimiter_pat;
-        $extracted .= shift @$tokens;
+
+        my $token = shift @$tokens;
+
+        # Flatten multi-line data structures into a single line which
+        # Devel::Declare can inject.
+        $token->prune(sub { !$_[1]->significant }) if $token->isa("PPI::Node");
+
+        $extracted .= $token;
     }
 
     return $extracted;
@@ -366,11 +377,22 @@ sub check {
             sig_parsing_error("Named parameter '$var' mixed with optional positional '$pos_var'");
         }
     }
-    else {
+    else {  # is_positional
         if( $signature->num_named ) {
             my $named_var = $signature->named_parameters->[-1]->variable;
             my $var = $self->variable;
             sig_parsing_error("Positional parameter '$var' after named param '$named_var'");
+        }
+
+        # Required positional after an optional.
+        # Required positional after a slurpy will be handled elsewhere.
+        if( $self->is_required && $signature->num_optional_positional &&
+            !$signature->num_slurpy
+        ) {
+            my $var = $self->variable;
+            my $opt_pos_var = $signature->optional_positional_parameters->[-1]
+                                        ->variable;
+            sig_parsing_error("Required positional parameter '$var' cannot follow an optional positional parameter '$opt_pos_var'");
         }
     }
 

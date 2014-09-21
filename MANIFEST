@@ -24,6 +24,7 @@ t/block_defaults.t
 t/caller.t
 t/comments.t
 t/debugger.t
+t/default_invocant.t
 t/defaults.t
 t/defined_or_defaults.t
 t/error_interruption.t
@@ -66,8 +67,10 @@ t/lib/OverrideErrors.pm
 t/lib/OverrideModifierErrors.pm
 t/lib/OverrideTypeCheck.pm
 t/lib/PosAfterNamed.pm
+t/lib/RequiredAfterOpt.pm
 t/lib/TrailingGarbage.pm
 t/lib/UnknownType.pm
+t/line_numbers.t
 t/method.t
 t/mxd-replace.t
 t/mxd-role.t
@@ -82,6 +85,7 @@ t/override_errors.t
 t/override_modifier_errors.t
 t/override_nothing.t
 t/override_typecheck.t
+t/parameters.t
 t/paren_on_own_line.t
 t/paren_plus_open_block.t
 t/refs.t
@@ -93,7 +97,6 @@ t/role_check_mouse.t
 t/signature_error_handler.t
 t/simple.plx
 t/slurpy.t
-t/split_proto.t
 t/string_defaults.t
 t/syntax_errors.t
 t/thread-bug.t
